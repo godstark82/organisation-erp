@@ -15,5 +15,5 @@ export default async function CategoriesSettingsPage() {
     categories = await seedDefaultProjectCategories(orgId)
   }
 
-  return <CategoriesManager categories={categories} />
+  return <CategoriesManager categories={categories} orgId={orgId} />
 }

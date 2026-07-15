@@ -466,10 +466,18 @@ export async function updateProjectCategoryAction(
   }
 }
 
-export async function deleteProjectCategoryAction(categoryId: string) {
-  await requireSession()
-  await deleteProjectCategory(categoryId)
-  revalidatePath("/settings/categories")
-  revalidatePath("/projects")
-  return { success: true }
+export async function deleteProjectCategoryAction(
+  categoryId: string
+): Promise<ProjectActionState> {
+  try {
+    await requireSession()
+    await deleteProjectCategory(categoryId)
+    revalidatePath("/settings/categories")
+    revalidatePath("/projects")
+    return { success: "Category deleted" }
+  } catch (err) {
+    return {
+      error: err instanceof Error ? err.message : "Failed to delete category",
+    }
+  }
 }

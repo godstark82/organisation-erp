@@ -1,31 +1,14 @@
 import { Suspense } from "react"
 import { LoadingSkeleton } from "@/components/shared/loading-skeleton"
 import { PaymentsTable } from "@/features/payments/components/payments-table"
-import { requireSession } from "@/lib/auth/session"
-import { ORG_ID } from "@/lib/data/demo-store"
-import { listClients } from "@/lib/repositories/clients.repository"
-import { listPayments } from "@/lib/repositories/payments.repository"
-import { listProjects } from "@/lib/repositories/projects.repository"
-import { hasPermission } from "@/lib/rbac"
-import type { Payment } from "@/types"
+import { fetchPaymentsPageQuery } from "@/features/payments/queries"
 
 export default async function PaymentsPage() {
-  const session = await requireSession()
-  const orgId = session.profile.organization_id ?? ORG_ID
-  const canManage =
-    hasPermission(session.permissions, "payments.create") ||
-    hasPermission(session.permissions, "payments.verify")
-
-  let payments: Payment[] = []
   let error: string | null = null
-
-  const [projects, clients] = await Promise.all([
-    listProjects({ organizationId: orgId }),
-    listClients({ organizationId: orgId }),
-  ])
+  let data: Awaited<ReturnType<typeof fetchPaymentsPageQuery>> | null = null
 
   try {
-    payments = await listPayments({ organizationId: orgId })
+    data = await fetchPaymentsPageQuery()
   } catch {
     error = "Unable to load payments. Please try again."
   }
@@ -38,14 +21,16 @@ export default async function PaymentsPage() {
         </p>
       )}
 
-      <Suspense fallback={<LoadingSkeleton variant="table" />}>
-        <PaymentsTable
-          payments={payments}
-          projects={projects}
-          clients={clients}
-          canManage={canManage}
-        />
-      </Suspense>
+      {data && (
+        <Suspense fallback={<LoadingSkeleton variant="table" />}>
+          <PaymentsTable
+            initialPayments={data.payments}
+            initialProjects={data.projects}
+            initialClients={data.clients}
+            canManage={data.canManage}
+          />
+        </Suspense>
+      )}
     </div>
   )
 }

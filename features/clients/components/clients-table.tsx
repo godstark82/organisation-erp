@@ -7,7 +7,7 @@ import {
 } from "@heroicons/react/20/solid"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
-import { useCallback, useEffect, useMemo, useState, useTransition } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { ConfirmDialog } from "@/components/shared/confirm-dialog"
 import { EmptyState } from "@/components/shared/empty-state"
 import { FilterBar } from "@/components/shared/filter-bar"
@@ -31,27 +31,24 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import {
-  deleteClientAction,
-  createClientAction,
-  updateClientAction,
-  type ClientActionState,
-} from "@/features/clients/actions"
 import { ClientForm } from "@/features/clients/components/client-form"
+import {
+  useClientsQuery,
+  useDeleteClientMutation,
+} from "@/features/clients/hooks"
 import { useDebounce } from "@/hooks/use-debounce"
 import { CLIENT_STATUSES } from "@/lib/constants"
 import { formatDate } from "@/lib/utils"
 import type { Client, ClientStatus } from "@/types"
 
 interface ClientsTableProps {
-  clients: Client[]
+  initialClients: Client[]
   canManage: boolean
 }
 
-export function ClientsTable({ clients, canManage }: ClientsTableProps) {
+export function ClientsTable({ initialClients, canManage }: ClientsTableProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const [, startTransition] = useTransition()
 
   const [search, setSearch] = useState(searchParams.get("search") ?? "")
   const [status, setStatus] = useState(searchParams.get("status") ?? "")
@@ -60,8 +57,11 @@ export function ClientsTable({ clients, canManage }: ClientsTableProps) {
   const [editClient, setEditClient] = useState<Client | null>(null)
   const [createOpen, setCreateOpen] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<Client | null>(null)
-  const [deletePending, setDeletePending] = useState(false)
-  const [deleteError, setDeleteError] = useState<string | null>(null)
+
+  const { data: clients = initialClients, isError, error } = useClientsQuery(
+    initialClients
+  )
+  const deleteMutation = useDeleteClientMutation()
 
   const updateParams = useCallback(
     (nextSearch: string, nextStatus: string) => {
@@ -106,27 +106,21 @@ export function ClientsTable({ clients, canManage }: ClientsTableProps) {
     setStatus("")
   }
 
-  const handleDelete = async () => {
+  const handleDelete = () => {
     if (!deleteTarget) return
-    setDeletePending(true)
-    setDeleteError(null)
-    const result: ClientActionState = await deleteClientAction(deleteTarget.id)
-    if (result.error) {
-      setDeleteError(result.error)
-      setDeletePending(false)
-      return
-    }
-    setDeleteTarget(null)
-    setDeletePending(false)
-    router.refresh()
+    deleteMutation.mutate(deleteTarget.id, {
+      onSuccess: () => setDeleteTarget(null),
+    })
   }
-
-  const boundUpdateAction = editClient
-    ? updateClientAction.bind(null, editClient.id)
-    : null
 
   return (
     <>
+      {isError && (
+        <p className="mb-4 rounded-lg border border-danger/30 bg-danger-subtle px-4 py-3 text-danger-subtle-fg text-sm">
+          {error instanceof Error ? error.message : "Unable to load clients."}
+        </p>
+      )}
+
       <FilterBar
         searchValue={search}
         onSearchChange={setSearch}
@@ -246,19 +240,14 @@ export function ClientsTable({ clients, canManage }: ClientsTableProps) {
         </ModalHeader>
         <ModalBody>
           <ClientForm
-            action={createClientAction}
             submitLabel="Create client"
-            onSuccess={() => {
-              startTransition(() => {
-                router.refresh()
-                setCreateOpen(false)
-              })
-            }}
+            stayOnCreate
+            onSuccess={() => setCreateOpen(false)}
           />
         </ModalBody>
       </ModalContent>
 
-      {boundUpdateAction && editClient && (
+      {editClient && (
         <ModalContent
           isOpen={Boolean(editClient)}
           onOpenChange={(open) => {
@@ -271,15 +260,9 @@ export function ClientsTable({ clients, canManage }: ClientsTableProps) {
           </ModalHeader>
           <ModalBody>
             <ClientForm
-              action={boundUpdateAction}
               client={editClient}
               submitLabel="Update client"
-              onSuccess={() => {
-                startTransition(() => {
-                  router.refresh()
-                  setEditClient(null)
-                })
-              }}
+              onSuccess={() => setEditClient(null)}
             />
           </ModalBody>
         </ModalContent>
@@ -290,17 +273,17 @@ export function ClientsTable({ clients, canManage }: ClientsTableProps) {
         onOpenChange={(open) => {
           if (!open) {
             setDeleteTarget(null)
-            setDeleteError(null)
+            deleteMutation.reset()
           }
         }}
         title="Delete client"
         description={
-          deleteError ??
+          deleteMutation.error?.message ??
           `Are you sure you want to delete ${deleteTarget?.company_name}? This action cannot be undone.`
         }
         confirmLabel="Delete"
         onConfirm={handleDelete}
-        isPending={deletePending}
+        isPending={deleteMutation.isPending}
         intent="danger"
       />
     </>

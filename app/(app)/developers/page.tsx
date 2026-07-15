@@ -58,7 +58,7 @@ export default async function DevelopersPage({ searchParams }: DevelopersPagePro
       )}
 
       <Suspense fallback={<LoadingSkeleton variant="table" />}>
-        <DevelopersTable developers={developers} canManage={canManage} />
+        <DevelopersTable initialDevelopers={developers} canManage={canManage} />
       </Suspense>
     </div>
   )

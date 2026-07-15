@@ -192,15 +192,23 @@ export async function updatePaymentAction(
   }
 }
 
-export async function deletePaymentAction(paymentId: string) {
-  await requirePermission("payments.create")
-  const payment = await getPayment(paymentId)
-  await deletePayment(paymentId)
-  revalidatePath("/payments")
-  if (payment?.project_id) {
-    revalidatePath(`/projects/${payment.project_id}/payments`)
+export async function deletePaymentAction(
+  paymentId: string
+): Promise<PaymentActionState> {
+  try {
+    await requirePermission("payments.create")
+    const payment = await getPayment(paymentId)
+    await deletePayment(paymentId)
+    revalidatePath("/payments")
+    if (payment?.project_id) {
+      revalidatePath(`/projects/${payment.project_id}/payments`)
+    }
+    return { success: "Payment deleted" }
+  } catch (err) {
+    return {
+      error: err instanceof Error ? err.message : "Failed to delete payment",
+    }
   }
-  return { success: true }
 }
 
 export async function markPaidAction(

@@ -3,7 +3,7 @@
 import { PencilSquareIcon, TrashIcon } from "@heroicons/react/20/solid"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { useState, useTransition } from "react"
+import { useState } from "react"
 import { ActivityFeed } from "@/components/shared/activity-feed"
 import { ConfirmDialog } from "@/components/shared/confirm-dialog"
 import { EmptyState } from "@/components/shared/empty-state"
@@ -20,8 +20,11 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Tab, TabList, TabPanel, TabPanels, Tabs } from "@/components/ui/tabs"
-import { deleteClientAction, updateClientAction } from "@/features/clients/actions"
 import { ClientForm } from "@/features/clients/components/client-form"
+import {
+  useClientQuery,
+  useDeleteClientMutation,
+} from "@/features/clients/hooks"
 import { formatCurrency, formatDate } from "@/lib/utils"
 import type {
   ActivityLog,
@@ -51,7 +54,7 @@ function DetailField({ label, value }: { label: string; value: React.ReactNode }
 }
 
 export function ClientDetailView({
-  client,
+  client: initialClient,
   projects,
   payments,
   activities,
@@ -60,24 +63,19 @@ export function ClientDetailView({
   canSeeNotes,
 }: ClientDetailViewProps) {
   const router = useRouter()
-  const [, startTransition] = useTransition()
   const [editOpen, setEditOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
-  const [deletePending, setDeletePending] = useState(false)
-  const [deleteError, setDeleteError] = useState<string | null>(null)
 
-  const boundUpdateAction = updateClientAction.bind(null, client.id)
+  const { data: client = initialClient } = useClientQuery(
+    initialClient.id,
+    initialClient
+  )
+  const deleteMutation = useDeleteClientMutation()
 
-  const handleDelete = async () => {
-    setDeletePending(true)
-    setDeleteError(null)
-    const result = await deleteClientAction(client.id)
-    if (result.error) {
-      setDeleteError(result.error)
-      setDeletePending(false)
-      return
-    }
-    router.push("/clients")
+  const handleDelete = () => {
+    deleteMutation.mutate(client.id, {
+      onSuccess: () => router.push("/clients"),
+    })
   }
 
   return (
@@ -270,15 +268,9 @@ export function ClientDetailView({
         </ModalHeader>
         <ModalBody>
           <ClientForm
-            action={boundUpdateAction}
             client={client}
             submitLabel="Update client"
-            onSuccess={() => {
-              startTransition(() => {
-                router.refresh()
-                setEditOpen(false)
-              })
-            }}
+            onSuccess={() => setEditOpen(false)}
           />
         </ModalBody>
       </ModalContent>
@@ -287,16 +279,16 @@ export function ClientDetailView({
         isOpen={deleteOpen}
         onOpenChange={(open) => {
           setDeleteOpen(open)
-          if (!open) setDeleteError(null)
+          if (!open) deleteMutation.reset()
         }}
         title="Delete client"
         description={
-          deleteError ??
+          deleteMutation.error?.message ??
           `Are you sure you want to delete ${client.company_name}? This action cannot be undone.`
         }
         confirmLabel="Delete"
         onConfirm={handleDelete}
-        isPending={deletePending}
+        isPending={deleteMutation.isPending}
         intent="danger"
       />
     </>

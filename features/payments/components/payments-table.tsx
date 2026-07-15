@@ -23,6 +23,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { PaymentForm } from "@/features/payments/components/payment-form"
+import { usePaymentsPageQuery } from "@/features/payments/hooks"
 import { useDebounce } from "@/hooks/use-debounce"
 import { PAYMENT_STATUSES } from "@/lib/constants"
 import { summarizePayments } from "@/features/payments/lib/summary"
@@ -30,24 +31,35 @@ import { formatCurrency, formatDate } from "@/lib/utils"
 import type { Client, Payment, PaymentStatus, Project } from "@/types"
 
 interface PaymentsTableProps {
-  payments: Payment[]
-  projects: Project[]
-  clients: Client[]
+  initialPayments: Payment[]
+  initialProjects: Project[]
+  initialClients: Client[]
   canManage?: boolean
   defaultProjectId?: string
   embedded?: boolean
 }
 
 export function PaymentsTable({
-  payments,
-  projects,
-  clients,
+  initialPayments,
+  initialProjects,
+  initialClients,
   canManage = false,
   defaultProjectId,
   embedded = false,
 }: PaymentsTableProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
+
+  const { data } = usePaymentsPageQuery(defaultProjectId, {
+    payments: initialPayments,
+    projects: initialProjects,
+    clients: initialClients,
+    canManage,
+  })
+
+  const payments = data?.payments ?? initialPayments
+  const projects = data?.projects ?? initialProjects
+  const clients = data?.clients ?? initialClients
 
   const [search, setSearch] = useState(searchParams.get("search") ?? "")
   const [status, setStatus] = useState(searchParams.get("status") ?? "")
@@ -267,10 +279,7 @@ export function PaymentsTable({
             clients={clients}
             mode="create"
             defaultProjectId={defaultProjectId}
-            onSuccess={() => {
-              setCreateOpen(false)
-              router.refresh()
-            }}
+            onSuccess={() => setCreateOpen(false)}
           />
         </ModalBody>
       </ModalContent>
@@ -292,10 +301,7 @@ export function PaymentsTable({
               clients={clients}
               mode="edit"
               payment={editPayment}
-              onSuccess={() => {
-                setEditPayment(null)
-                router.refresh()
-              }}
+              onSuccess={() => setEditPayment(null)}
             />
           )}
         </ModalBody>

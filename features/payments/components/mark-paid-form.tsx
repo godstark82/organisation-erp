@@ -1,6 +1,6 @@
 "use client"
 
-import { useActionState, useRef, useTransition } from "react"
+import { useRef } from "react"
 import { FileDropzone } from "@/components/shared/file-dropzone"
 import { Button } from "@/components/ui/button"
 import { FieldError, Label } from "@/components/ui/field"
@@ -8,23 +8,20 @@ import { Input } from "@/components/ui/input"
 import { Note } from "@/components/ui/note"
 import { TextField } from "@/components/ui/text-field"
 import { Textarea } from "@/components/ui/textarea"
-import {
-  markPaidAction,
-  type PaymentActionState,
-} from "@/features/payments/actions"
+import { useMarkPaidMutation } from "@/features/payments/hooks"
 import type { Payment } from "@/types"
-
-const initialState: PaymentActionState = {}
 
 interface MarkPaidFormProps {
   payment: Payment
 }
 
 export function MarkPaidForm({ payment }: MarkPaidFormProps) {
-  const boundAction = markPaidAction.bind(null, payment.id)
-  const [state, formAction, actionPending] = useActionState(boundAction, initialState)
-  const [, startTransition] = useTransition()
+  const mutation = useMarkPaidMutation(payment.id)
   const formRef = useRef<HTMLFormElement>(null)
+
+  const fieldErrors =
+    (mutation.error as Error & { fieldErrors?: Record<string, string[]> })
+      ?.fieldErrors ?? undefined
 
   const handleFilesSelect = (files: FileList) => {
     const input = formRef.current?.querySelector(
@@ -40,9 +37,7 @@ export function MarkPaidForm({ payment }: MarkPaidFormProps) {
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     const formData = new FormData(event.currentTarget)
-    startTransition(() => {
-      formAction(formData)
-    })
+    mutation.mutate(formData)
   }
 
   if (payment.status !== "pending" && payment.status !== "rejected") {
@@ -58,30 +53,30 @@ export function MarkPaidForm({ payment }: MarkPaidFormProps) {
         </p>
       </div>
 
-      {state?.error && (
+      {mutation.error && (
         <Note intent="danger" className="text-sm">
-          {state.error}
+          {mutation.error.message}
         </Note>
       )}
-      {state?.success && (
+      {mutation.isSuccess && mutation.data?.success && (
         <Note intent="success" className="text-sm">
-          {state.success}
+          {mutation.data.success}
         </Note>
       )}
 
-      <TextField name="utr" isInvalid={!!state?.fieldErrors?.utr}>
+      <TextField name="utr" isInvalid={!!fieldErrors?.utr}>
         <Label>UTR / Reference number</Label>
         <Input placeholder="e.g. HDFCN26071234567890" />
-        <FieldError>{state?.fieldErrors?.utr?.[0]}</FieldError>
+        <FieldError>{fieldErrors?.utr?.[0]}</FieldError>
       </TextField>
 
       <TextField
         name="transaction_id"
-        isInvalid={!!state?.fieldErrors?.transaction_id}
+        isInvalid={!!fieldErrors?.transaction_id}
       >
         <Label>Transaction ID</Label>
         <Input placeholder="Bank / UPI transaction ID" />
-        <FieldError>{state?.fieldErrors?.transaction_id?.[0]}</FieldError>
+        <FieldError>{fieldErrors?.transaction_id?.[0]}</FieldError>
       </TextField>
 
       <TextField name="notes">
@@ -104,8 +99,8 @@ export function MarkPaidForm({ payment }: MarkPaidFormProps) {
         />
       </div>
 
-      <Button type="submit" intent="primary" isDisabled={actionPending}>
-        {actionPending ? "Submitting…" : "I Have Paid"}
+      <Button type="submit" intent="primary" isDisabled={mutation.isPending}>
+        {mutation.isPending ? "Submitting…" : "I Have Paid"}
       </Button>
     </form>
   )

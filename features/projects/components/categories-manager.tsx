@@ -1,8 +1,7 @@
 "use client"
 
 import { PencilSquareIcon, TrashIcon } from "@heroicons/react/20/solid"
-import { useRouter } from "next/navigation"
-import { useActionState, useEffect, useState, useTransition } from "react"
+import { useState } from "react"
 import { ConfirmDialog } from "@/components/shared/confirm-dialog"
 import { EmptyState } from "@/components/shared/empty-state"
 import { Button } from "@/components/ui/button"
@@ -21,14 +20,12 @@ import {
 } from "@/components/ui/table"
 import { TextField } from "@/components/ui/text-field"
 import {
-  createProjectCategoryAction,
-  deleteProjectCategoryAction,
-  updateProjectCategoryAction,
-  type ProjectActionState,
-} from "@/features/projects/actions"
+  useCreateProjectCategoryMutation,
+  useDeleteProjectCategoryMutation,
+  useProjectCategoriesQuery,
+  useUpdateProjectCategoryMutation,
+} from "@/features/projects/hooks"
 import type { ProjectCategory } from "@/types"
-
-const initialState: ProjectActionState = {}
 
 const COLOR_PRESETS = [
   "#2563eb",
@@ -42,32 +39,28 @@ const COLOR_PRESETS = [
 
 interface CategoriesManagerProps {
   categories: ProjectCategory[]
+  orgId: string
 }
 
 function CategoryForm({
-  action,
+  onSubmit,
   defaultName = "",
   defaultColor = "#2563eb",
   submitLabel,
-  onSuccess,
+  isPending,
+  error,
+  fieldErrors,
 }: {
-  action: (
-    prev: ProjectActionState | null,
-    formData: FormData
-  ) => Promise<ProjectActionState>
+  onSubmit: (formData: FormData) => void
   defaultName?: string
   defaultColor?: string
   submitLabel: string
-  onSuccess?: () => void
+  isPending?: boolean
+  error?: string
+  fieldErrors?: Record<string, string[]>
 }) {
-  const [state, formAction, actionPending] = useActionState(action, initialState)
-  const [isPending, startTransition] = useTransition()
   const [color, setColor] = useState(defaultColor || "#2563eb")
-  const pending = actionPending || isPending
-
-  useEffect(() => {
-    if (state?.success) onSuccess?.()
-  }, [state?.success, onSuccess])
+  const pending = Boolean(isPending)
 
   return (
     <form
@@ -76,14 +69,12 @@ function CategoryForm({
         event.preventDefault()
         const formData = new FormData(event.currentTarget)
         formData.set("color", color)
-        startTransition(() => {
-          formAction(formData)
-        })
+        onSubmit(formData)
       }}
     >
-      {state?.error && (
+      {error && (
         <Note intent="danger" className="text-sm">
-          {state.error}
+          {error}
         </Note>
       )}
 
@@ -91,11 +82,11 @@ function CategoryForm({
         name="name"
         isRequired
         defaultValue={defaultName}
-        isInvalid={!!state?.fieldErrors?.name}
+        isInvalid={!!fieldErrors?.name}
       >
         <Label>Name</Label>
         <Input placeholder="Website" />
-        <FieldError>{state?.fieldErrors?.name?.[0]}</FieldError>
+        <FieldError>{fieldErrors?.name?.[0]}</FieldError>
       </TextField>
 
       <div className="space-y-2">
@@ -122,8 +113,8 @@ function CategoryForm({
             aria-label="Custom color"
           />
         </div>
-        {state?.fieldErrors?.color?.[0] && (
-          <p className="text-danger text-xs">{state.fieldErrors.color[0]}</p>
+        {fieldErrors?.color?.[0] && (
+          <p className="text-danger text-xs">{fieldErrors.color[0]}</p>
         )}
       </div>
 
@@ -136,32 +127,21 @@ function CategoryForm({
   )
 }
 
-export function CategoriesManager({ categories }: CategoriesManagerProps) {
-  const router = useRouter()
+export function CategoriesManager({
+  categories: initialCategories,
+  orgId,
+}: CategoriesManagerProps) {
   const [createOpen, setCreateOpen] = useState(false)
   const [editCategory, setEditCategory] = useState<ProjectCategory | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<ProjectCategory | null>(null)
-  const [deletePending, setDeletePending] = useState(false)
-  const [deleteError, setDeleteError] = useState<string | null>(null)
 
-  const boundUpdate = editCategory
-    ? updateProjectCategoryAction.bind(null, editCategory.id)
-    : null
-
-  async function handleDelete() {
-    if (!deleteTarget) return
-    setDeletePending(true)
-    setDeleteError(null)
-    try {
-      await deleteProjectCategoryAction(deleteTarget.id)
-      setDeleteTarget(null)
-      router.refresh()
-    } catch (err) {
-      setDeleteError(err instanceof Error ? err.message : "Failed to delete")
-    } finally {
-      setDeletePending(false)
-    }
-  }
+  const { data: categories = initialCategories } = useProjectCategoriesQuery(
+    orgId,
+    initialCategories
+  )
+  const createMutation = useCreateProjectCategoryMutation(orgId)
+  const updateMutation = useUpdateProjectCategoryMutation(orgId)
+  const deleteMutation = useDeleteProjectCategoryMutation(orgId)
 
   return (
     <div className="space-y-4">
@@ -243,11 +223,18 @@ export function CategoriesManager({ categories }: CategoriesManagerProps) {
         </ModalHeader>
         <ModalBody>
           <CategoryForm
-            action={createProjectCategoryAction}
             submitLabel="Create type"
-            onSuccess={() => {
-              setCreateOpen(false)
-              router.refresh()
+            isPending={createMutation.isPending}
+            error={createMutation.error?.message}
+            fieldErrors={
+              (createMutation.error as Error & {
+                fieldErrors?: Record<string, string[]>
+              })?.fieldErrors
+            }
+            onSubmit={(formData) => {
+              createMutation.mutate(formData, {
+                onSuccess: () => setCreateOpen(false),
+              })
             }}
           />
         </ModalBody>
@@ -263,16 +250,24 @@ export function CategoriesManager({ categories }: CategoriesManagerProps) {
           <ModalTitle>Edit project type</ModalTitle>
         </ModalHeader>
         <ModalBody>
-          {boundUpdate && editCategory && (
+          {editCategory && (
             <CategoryForm
               key={editCategory.id}
-              action={boundUpdate}
               defaultName={editCategory.name}
               defaultColor={editCategory.color ?? "#2563eb"}
               submitLabel="Save changes"
-              onSuccess={() => {
-                setEditCategory(null)
-                router.refresh()
+              isPending={updateMutation.isPending}
+              error={updateMutation.error?.message}
+              fieldErrors={
+                (updateMutation.error as Error & {
+                  fieldErrors?: Record<string, string[]>
+                })?.fieldErrors
+              }
+              onSubmit={(formData) => {
+                updateMutation.mutate(
+                  { categoryId: editCategory.id, formData },
+                  { onSuccess: () => setEditCategory(null) }
+                )
               }}
             />
           )}
@@ -284,17 +279,22 @@ export function CategoriesManager({ categories }: CategoriesManagerProps) {
         onOpenChange={(open) => {
           if (!open) {
             setDeleteTarget(null)
-            setDeleteError(null)
+            deleteMutation.reset()
           }
         }}
         title="Delete project type"
         description={
-          deleteError ??
+          deleteMutation.error?.message ??
           `Delete "${deleteTarget?.name}"? Projects using it will keep running with no type.`
         }
         confirmLabel="Delete"
-        onConfirm={handleDelete}
-        isPending={deletePending}
+        onConfirm={() => {
+          if (!deleteTarget) return
+          deleteMutation.mutate(deleteTarget.id, {
+            onSuccess: () => setDeleteTarget(null),
+          })
+        }}
+        isPending={deleteMutation.isPending}
         intent="danger"
       />
     </div>

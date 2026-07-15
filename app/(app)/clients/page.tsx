@@ -55,7 +55,7 @@ export default async function ClientsPage({ searchParams }: ClientsPageProps) {
       )}
 
       <Suspense fallback={<LoadingSkeleton variant="table" />}>
-        <ClientsTable clients={clients} canManage={canManage} />
+        <ClientsTable initialClients={clients} canManage={canManage} />
       </Suspense>
     </div>
   )

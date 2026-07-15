@@ -1,11 +1,6 @@
 "use client"
 
-import { useActionState, useEffect, useTransition } from "react"
-import {
-  createProjectAction,
-  updateProjectAction,
-  type ProjectActionState,
-} from "@/features/projects/actions"
+import { useRouter } from "next/navigation"
 import type { Client, Profile, ProjectCategory } from "@/types"
 import { PROJECT_STATUSES, PRIORITIES } from "@/lib/constants"
 import { Button } from "@/components/ui/button"
@@ -16,8 +11,10 @@ import { Note } from "@/components/ui/note"
 import { TextField } from "@/components/ui/text-field"
 import { Textarea } from "@/components/ui/textarea"
 import { UserAvatar } from "@/components/shared/user-avatar"
-
-const initialState: ProjectActionState = {}
+import {
+  useCreateProjectMutation,
+  useUpdateProjectMutation,
+} from "@/features/projects/hooks"
 
 export interface ProjectFormProps {
   clients: Client[]
@@ -38,6 +35,7 @@ export interface ProjectFormProps {
     deadline?: string
   }
   onSuccess?: () => void
+  stayOnCreate?: boolean
 }
 
 export function ProjectForm({
@@ -49,52 +47,55 @@ export function ProjectForm({
   defaultMemberIds = [],
   defaultValues,
   onSuccess,
+  stayOnCreate = false,
 }: ProjectFormProps) {
-  const boundUpdate = updateProjectAction.bind(null, projectId ?? "")
-  const [state, formAction, actionPending] = useActionState(
-    mode === "edit" ? boundUpdate : createProjectAction,
-    initialState
-  )
-  const [isPending, startTransition] = useTransition()
-  const pending = actionPending || isPending
+  const router = useRouter()
+  const createMutation = useCreateProjectMutation()
+  const updateMutation = useUpdateProjectMutation(projectId ?? "")
+  const mutation = mode === "edit" ? updateMutation : createMutation
+  const pending = mutation.isPending
 
-  useEffect(() => {
-    if (state?.success) onSuccess?.()
-  }, [state?.success, onSuccess])
+  const fieldErrors =
+    (mutation.error as Error & { fieldErrors?: Record<string, string[]> })
+      ?.fieldErrors ?? undefined
 
   const onSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     const formData = new FormData(event.currentTarget)
-    startTransition(() => {
-      formAction(formData)
+    mutation.mutate(formData, {
+      onSuccess: (result) => {
+        if (mode === "create" && result.id && !stayOnCreate) {
+          router.push(`/projects/${result.id}`)
+          return
+        }
+        onSuccess?.()
+      },
     })
   }
 
   return (
     <form onSubmit={onSubmit} className="space-y-5">
-      {state?.error && (
+      {mutation.error && (
         <Note intent="danger" className="text-sm break-words">
-          {state.error}
+          {mutation.error.message}
         </Note>
       )}
-      {state?.fieldErrors &&
-        Object.keys(state.fieldErrors).length > 0 &&
-        !state.error && (
-          <Note intent="danger" className="text-sm">
-            {Object.values(state.fieldErrors).flat().join(" ")}
-          </Note>
-        )}
+      {fieldErrors && Object.keys(fieldErrors).length > 0 && !mutation.error && (
+        <Note intent="danger" className="text-sm">
+          {Object.values(fieldErrors).flat().join(" ")}
+        </Note>
+      )}
 
       <FieldGroup>
         <TextField
           name="name"
           isRequired
-          isInvalid={!!state?.fieldErrors?.name}
+          isInvalid={!!fieldErrors?.name}
           defaultValue={defaultValues?.name ?? ""}
         >
           <Label>Project name</Label>
           <Input placeholder="Website redesign" />
-          <FieldError>{state?.fieldErrors?.name?.[0]}</FieldError>
+          <FieldError>{fieldErrors?.name?.[0]}</FieldError>
         </TextField>
 
         <div className="space-y-1.5">

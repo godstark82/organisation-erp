@@ -33,9 +33,9 @@ export default async function ProjectPaymentsPage({
   return (
     <Suspense fallback={<LoadingSkeleton variant="table" />}>
       <PaymentsTable
-        payments={payments}
-        projects={projects}
-        clients={clients}
+        initialPayments={payments}
+        initialProjects={projects}
+        initialClients={clients}
         canManage={canManage}
         defaultProjectId={id}
         embedded

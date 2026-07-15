@@ -1,9 +1,13 @@
 "use client"
 
 import { zodResolver } from "@hookform/resolvers/zod"
-import { useActionState, useEffect, useTransition } from "react"
+import { useRouter } from "next/navigation"
+import { useEffect } from "react"
 import { useForm } from "react-hook-form"
-import type { ClientActionState } from "@/features/clients/actions"
+import {
+  useCreateClientMutation,
+  useUpdateClientMutation,
+} from "@/features/clients/hooks"
 import {
   clientFormDefaults,
   clientFormSchema,
@@ -18,8 +22,6 @@ import { TextField } from "@/components/ui/text-field"
 import { Textarea } from "@/components/ui/textarea"
 import { CLIENT_STATUSES } from "@/lib/constants"
 import type { Client } from "@/types"
-
-const initialState: ClientActionState = {}
 
 function toFormValues(client?: Partial<Client>): ClientFormInput {
   if (!client) return clientFormDefaults
@@ -37,24 +39,24 @@ function toFormValues(client?: Partial<Client>): ClientFormInput {
 }
 
 export interface ClientFormProps {
-  action: (
-    prev: ClientActionState | null,
-    formData: FormData
-  ) => Promise<ClientActionState>
   client?: Client
   submitLabel?: string
   onSuccess?: () => void
+  /** When true, skip navigation after create (e.g. stay in modal). */
+  stayOnCreate?: boolean
 }
 
 export function ClientForm({
-  action,
   client,
   submitLabel = "Save client",
   onSuccess,
+  stayOnCreate = false,
 }: ClientFormProps) {
-  const [state, formAction, actionPending] = useActionState(action, initialState)
-  const [isPending, startTransition] = useTransition()
-  const pending = actionPending || isPending
+  const router = useRouter()
+  const createMutation = useCreateClientMutation()
+  const updateMutation = useUpdateClientMutation(client?.id ?? "")
+  const mutation = client ? updateMutation : createMutation
+  const pending = mutation.isPending
 
   const {
     register,
@@ -70,35 +72,35 @@ export function ClientForm({
     reset(toFormValues(client))
   }, [client, reset])
 
-  useEffect(() => {
-    if (state?.success) {
-      onSuccess?.()
-    }
-  }, [state?.success, onSuccess])
+  const fieldErrors =
+    (mutation.error as Error & { fieldErrors?: Record<string, string[]> })
+      ?.fieldErrors ?? undefined
+
+  const fieldError = (name: keyof ClientFormInput) =>
+    errors[name]?.message ?? fieldErrors?.[name]?.[0]
 
   const onSubmit = handleSubmit((data) => {
-    const formData = new FormData()
-    for (const [key, value] of Object.entries(data)) {
-      formData.set(key, value == null ? "" : String(value))
-    }
-    startTransition(() => {
-      formAction(formData)
+    mutation.mutate(data, {
+      onSuccess: (result) => {
+        if (!client && result.id && !stayOnCreate) {
+          router.push(`/clients/${result.id}`)
+          return
+        }
+        onSuccess?.()
+      },
     })
   })
 
-  const fieldError = (name: keyof ClientFormInput) =>
-    errors[name]?.message ?? state?.fieldErrors?.[name]?.[0]
-
   return (
     <form onSubmit={onSubmit} className="space-y-5">
-      {state?.error && (
+      {mutation.error && (
         <Note intent="danger" className="text-sm">
-          {state.error}
+          {mutation.error.message}
         </Note>
       )}
-      {state?.success && (
+      {mutation.isSuccess && mutation.data?.success && (
         <Note intent="success" className="text-sm">
-          {state.success}
+          {mutation.data.success}
         </Note>
       )}
 

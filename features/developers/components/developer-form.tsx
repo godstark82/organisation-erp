@@ -1,7 +1,9 @@
 "use client"
 
-import { useActionState, useEffect, useTransition } from "react"
-import type { DeveloperActionState } from "@/features/developers/actions"
+import {
+  useCreateDeveloperMutation,
+  useUpdateDeveloperMutation,
+} from "@/features/developers/hooks"
 import { STAFF_ROLES } from "@/features/developers/schemas"
 import { Button } from "@/components/ui/button"
 import { FieldError, Label } from "@/components/ui/field"
@@ -12,31 +14,25 @@ import { TextField } from "@/components/ui/text-field"
 import { ROLE_LABELS } from "@/lib/rbac"
 import type { Profile } from "@/types"
 
-const initialState: DeveloperActionState = {}
-
 export interface DeveloperFormProps {
-  action: (
-    prev: DeveloperActionState | null,
-    formData: FormData
-  ) => Promise<DeveloperActionState>
   developer?: Profile
   mode?: "create" | "edit"
   onSuccess?: () => void
 }
 
 export function DeveloperForm({
-  action,
   developer,
   mode = "create",
   onSuccess,
 }: DeveloperFormProps) {
-  const [state, formAction, actionPending] = useActionState(action, initialState)
-  const [isPending, startTransition] = useTransition()
-  const pending = actionPending || isPending
+  const createMutation = useCreateDeveloperMutation()
+  const updateMutation = useUpdateDeveloperMutation(developer?.id ?? "")
+  const mutation = mode === "edit" ? updateMutation : createMutation
+  const pending = mutation.isPending
 
-  useEffect(() => {
-    if (state?.success) onSuccess?.()
-  }, [state?.success, onSuccess])
+  const fieldErrors =
+    (mutation.error as Error & { fieldErrors?: Record<string, string[]> })
+      ?.fieldErrors ?? undefined
 
   const onSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -44,21 +40,21 @@ export function DeveloperForm({
     if (mode === "edit") {
       formData.set("is_active", String(developer?.is_active !== false))
     }
-    startTransition(() => {
-      formAction(formData)
+    mutation.mutate(formData, {
+      onSuccess: () => onSuccess?.(),
     })
   }
 
   return (
     <form onSubmit={onSubmit} className="space-y-5">
-      {state?.error && (
+      {mutation.error && (
         <Note intent="danger" className="text-sm">
-          {state.error}
+          {mutation.error.message}
         </Note>
       )}
-      {state?.success && (
+      {mutation.isSuccess && mutation.data?.success && (
         <Note intent="success" className="text-sm">
-          {state.success}
+          {mutation.data.success}
         </Note>
       )}
 
@@ -66,18 +62,18 @@ export function DeveloperForm({
         <TextField
           name="full_name"
           isRequired
-          isInvalid={!!state?.fieldErrors?.full_name}
+          isInvalid={!!fieldErrors?.full_name}
           defaultValue={developer?.full_name ?? ""}
         >
           <Label>Full name</Label>
           <Input placeholder="Alex Morgan" />
-          <FieldError>{state?.fieldErrors?.full_name?.[0]}</FieldError>
+          <FieldError>{fieldErrors?.full_name?.[0]}</FieldError>
         </TextField>
 
         <TextField
           name="email"
           isRequired={mode === "create"}
-          isInvalid={!!state?.fieldErrors?.email}
+          isInvalid={!!fieldErrors?.email}
           defaultValue={developer?.email ?? ""}
         >
           <Label>Email</Label>
@@ -86,27 +82,27 @@ export function DeveloperForm({
             placeholder="alex@agency.com"
             disabled={mode === "edit"}
           />
-          <FieldError>{state?.fieldErrors?.email?.[0]}</FieldError>
+          <FieldError>{fieldErrors?.email?.[0]}</FieldError>
         </TextField>
 
         <TextField
           name="phone"
-          isInvalid={!!state?.fieldErrors?.phone}
+          isInvalid={!!fieldErrors?.phone}
           defaultValue={developer?.phone ?? ""}
         >
           <Label>Phone</Label>
           <Input type="tel" placeholder="+91 98765 43210" />
-          <FieldError>{state?.fieldErrors?.phone?.[0]}</FieldError>
+          <FieldError>{fieldErrors?.phone?.[0]}</FieldError>
         </TextField>
 
         <TextField
           name="title"
-          isInvalid={!!state?.fieldErrors?.title}
+          isInvalid={!!fieldErrors?.title}
           defaultValue={developer?.title ?? ""}
         >
           <Label>Title</Label>
           <Input placeholder="Full-stack developer" />
-          <FieldError>{state?.fieldErrors?.title?.[0]}</FieldError>
+          <FieldError>{fieldErrors?.title?.[0]}</FieldError>
         </TextField>
       </div>
 
@@ -131,8 +127,8 @@ export function DeveloperForm({
             ))}
           </NativeSelectContent>
         </NativeSelect>
-        {state?.fieldErrors?.role?.[0] && (
-          <FieldError>{state.fieldErrors.role[0]}</FieldError>
+        {fieldErrors?.role?.[0] && (
+          <FieldError>{fieldErrors.role[0]}</FieldError>
         )}
       </div>
 
@@ -140,7 +136,7 @@ export function DeveloperForm({
         <TextField
           name="password"
           isRequired
-          isInvalid={!!state?.fieldErrors?.password}
+          isInvalid={!!fieldErrors?.password}
         >
           <Label>Temporary password</Label>
           <Input
@@ -148,7 +144,7 @@ export function DeveloperForm({
             placeholder="Min. 8 characters"
             autoComplete="new-password"
           />
-          <FieldError>{state?.fieldErrors?.password?.[0]}</FieldError>
+          <FieldError>{fieldErrors?.password?.[0]}</FieldError>
         </TextField>
       )}
 

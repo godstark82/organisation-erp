@@ -1,6 +1,6 @@
 "use client"
 
-import { useActionState, useRef, useState, useTransition } from "react"
+import { useRef, useState } from "react"
 import { formatDistanceToNow } from "date-fns"
 import { FileDropzone } from "@/components/shared/file-dropzone"
 import { UserAvatar } from "@/components/shared/user-avatar"
@@ -10,14 +10,11 @@ import { Note } from "@/components/ui/note"
 import { TextField } from "@/components/ui/text-field"
 import { Textarea } from "@/components/ui/textarea"
 import {
-  raiseDisputeAction,
-  replyDisputeAction,
-  type PaymentActionState,
-} from "@/features/payments/actions"
+  useRaiseDisputeMutation,
+  useReplyDisputeMutation,
+} from "@/features/payments/hooks"
 import { formatCurrency } from "@/lib/utils"
 import type { Payment, PaymentDispute } from "@/types"
-
-const initialState: PaymentActionState = {}
 
 interface DisputePanelProps {
   payment: Payment
@@ -31,13 +28,12 @@ export function DisputePanel({
   canRaiseDispute,
 }: DisputePanelProps) {
   const [showForm, setShowForm] = useState(false)
-  const boundRaiseAction = raiseDisputeAction.bind(null, payment.id)
-  const [raiseState, raiseAction, raisePending] = useActionState(
-    boundRaiseAction,
-    initialState
-  )
-  const [, startTransition] = useTransition()
+  const raiseMutation = useRaiseDisputeMutation(payment.id)
   const raiseFormRef = useRef<HTMLFormElement>(null)
+
+  const raiseFieldErrors =
+    (raiseMutation.error as Error & { fieldErrors?: Record<string, string[]> })
+      ?.fieldErrors ?? undefined
 
   if (!dispute && !canRaiseDispute) return null
 
@@ -56,7 +52,7 @@ export function DisputePanel({
     const handleRaise = (event: React.FormEvent<HTMLFormElement>) => {
       event.preventDefault()
       const formData = new FormData(event.currentTarget)
-      startTransition(() => raiseAction(formData))
+      raiseMutation.mutate(formData)
     }
 
     return (
@@ -66,24 +62,32 @@ export function DisputePanel({
             Raise dispute
           </Button>
         ) : (
-          <form ref={raiseFormRef} onSubmit={handleRaise} className="space-y-4 rounded-lg border border-border p-4">
+          <form
+            ref={raiseFormRef}
+            onSubmit={handleRaise}
+            className="space-y-4 rounded-lg border border-border p-4"
+          >
             <h3 className="font-medium text-sm">Raise payment dispute</h3>
 
-            {raiseState?.error && (
-              <Note intent="danger" className="text-sm">{raiseState.error}</Note>
+            {raiseMutation.error && (
+              <Note intent="danger" className="text-sm">
+                {raiseMutation.error.message}
+              </Note>
             )}
-            {raiseState?.success && (
-              <Note intent="success" className="text-sm">{raiseState.success}</Note>
+            {raiseMutation.isSuccess && raiseMutation.data?.success && (
+              <Note intent="success" className="text-sm">
+                {raiseMutation.data.success}
+              </Note>
             )}
 
             <TextField
               name="reason"
               isRequired
-              isInvalid={!!raiseState?.fieldErrors?.reason}
+              isInvalid={!!raiseFieldErrors?.reason}
             >
               <Label>Reason</Label>
               <Textarea rows={3} placeholder="Describe the issue…" />
-              <FieldError>{raiseState?.fieldErrors?.reason?.[0]}</FieldError>
+              <FieldError>{raiseFieldErrors?.reason?.[0]}</FieldError>
             </TextField>
 
             <div className="grid gap-4 sm:grid-cols-2">
@@ -109,16 +113,22 @@ export function DisputePanel({
             <TextField
               name="message"
               isRequired
-              isInvalid={!!raiseState?.fieldErrors?.message}
+              isInvalid={!!raiseFieldErrors?.message}
             >
               <Label>Initial message</Label>
               <Textarea rows={3} placeholder="Start the conversation…" />
-              <FieldError>{raiseState?.fieldErrors?.message?.[0]}</FieldError>
+              <FieldError>{raiseFieldErrors?.message?.[0]}</FieldError>
             </TextField>
 
             <div>
               <Label className="mb-2 block">Attachments</Label>
-              <input type="file" name="attachments" multiple className="hidden" accept="image/*,.pdf" />
+              <input
+                type="file"
+                name="attachments"
+                multiple
+                className="hidden"
+                accept="image/*,.pdf"
+              />
               <FileDropzone
                 onFilesSelect={handleFilesSelect}
                 accept="image/*,.pdf"
@@ -128,8 +138,12 @@ export function DisputePanel({
             </div>
 
             <div className="flex gap-2">
-              <Button type="submit" intent="warning" isDisabled={raisePending}>
-                {raisePending ? "Submitting…" : "Submit dispute"}
+              <Button
+                type="submit"
+                intent="warning"
+                isDisabled={raiseMutation.isPending}
+              >
+                {raiseMutation.isPending ? "Submitting…" : "Submit dispute"}
               </Button>
               <Button intent="plain" size="sm" onPress={() => setShowForm(false)}>
                 Cancel
@@ -141,19 +155,16 @@ export function DisputePanel({
     )
   }
 
-  return (
-    <DisputeThread dispute={dispute} />
-  )
+  return <DisputeThread dispute={dispute} />
 }
 
 function DisputeThread({ dispute }: { dispute: PaymentDispute }) {
-  const boundReplyAction = replyDisputeAction.bind(null, dispute.id)
-  const [replyState, replyAction, replyPending] = useActionState(
-    boundReplyAction,
-    initialState
-  )
-  const [, startTransition] = useTransition()
+  const replyMutation = useReplyDisputeMutation(dispute.id)
   const replyFormRef = useRef<HTMLFormElement>(null)
+
+  const replyFieldErrors =
+    (replyMutation.error as Error & { fieldErrors?: Record<string, string[]> })
+      ?.fieldErrors ?? undefined
 
   const handleFilesSelect = (files: FileList) => {
     const input = replyFormRef.current?.querySelector(
@@ -169,7 +180,7 @@ function DisputeThread({ dispute }: { dispute: PaymentDispute }) {
   const handleReply = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     const formData = new FormData(event.currentTarget)
-    startTransition(() => replyAction(formData))
+    replyMutation.mutate(formData)
   }
 
   return (
@@ -198,7 +209,9 @@ function DisputeThread({ dispute }: { dispute: PaymentDispute }) {
                   {msg.author?.full_name ?? "Unknown"}
                 </span>
                 <time className="text-muted-fg text-xs">
-                  {formatDistanceToNow(new Date(msg.created_at), { addSuffix: true })}
+                  {formatDistanceToNow(new Date(msg.created_at), {
+                    addSuffix: true,
+                  })}
                 </time>
               </div>
               <p className="whitespace-pre-wrap text-sm">{msg.message}</p>
@@ -224,19 +237,29 @@ function DisputeThread({ dispute }: { dispute: PaymentDispute }) {
       </div>
 
       <form ref={replyFormRef} onSubmit={handleReply} className="space-y-3">
-        {replyState?.error && (
-          <Note intent="danger" className="text-sm">{replyState.error}</Note>
+        {replyMutation.error && (
+          <Note intent="danger" className="text-sm">
+            {replyMutation.error.message}
+          </Note>
         )}
-        {replyState?.success && (
-          <Note intent="success" className="text-sm">{replyState.success}</Note>
+        {replyMutation.isSuccess && replyMutation.data?.success && (
+          <Note intent="success" className="text-sm">
+            {replyMutation.data.success}
+          </Note>
         )}
 
-        <TextField name="message" isInvalid={!!replyState?.fieldErrors?.message}>
+        <TextField name="message" isInvalid={!!replyFieldErrors?.message}>
           <Textarea rows={3} placeholder="Reply to dispute…" />
-          <FieldError>{replyState?.fieldErrors?.message?.[0]}</FieldError>
+          <FieldError>{replyFieldErrors?.message?.[0]}</FieldError>
         </TextField>
 
-        <input type="file" name="attachments" multiple className="hidden" accept="image/*,.pdf" />
+        <input
+          type="file"
+          name="attachments"
+          multiple
+          className="hidden"
+          accept="image/*,.pdf"
+        />
         <FileDropzone
           onFilesSelect={handleFilesSelect}
           accept="image/*,.pdf"
@@ -245,8 +268,13 @@ function DisputeThread({ dispute }: { dispute: PaymentDispute }) {
           description="Attach supporting files (optional)"
         />
 
-        <Button type="submit" intent="primary" size="sm" isDisabled={replyPending}>
-          {replyPending ? "Sending…" : "Send reply"}
+        <Button
+          type="submit"
+          intent="primary"
+          size="sm"
+          isDisabled={replyMutation.isPending}
+        >
+          {replyMutation.isPending ? "Sending…" : "Send reply"}
         </Button>
       </form>
     </div>

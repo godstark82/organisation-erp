@@ -2,12 +2,7 @@
 
 import Link from "next/link"
 import { TrashIcon } from "@heroicons/react/20/solid"
-import { useActionState, useMemo, useState, useTransition } from "react"
-import {
-  addProjectMembersAction,
-  removeProjectMemberAction,
-  type ProjectActionState,
-} from "@/features/projects/actions"
+import { useMemo, useState } from "react"
 import type { Profile, ProjectMember } from "@/types"
 import { UserAvatar } from "@/components/shared/user-avatar"
 import { Button } from "@/components/ui/button"
@@ -16,6 +11,11 @@ import { Input } from "@/components/ui/input"
 import { NativeSelect, NativeSelectContent } from "@/components/ui/native-select"
 import { Note } from "@/components/ui/note"
 import { TextField } from "@/components/ui/text-field"
+import {
+  useAddProjectMembersMutation,
+  useProjectMembersQuery,
+  useRemoveProjectMemberMutation,
+} from "@/features/projects/hooks"
 import { formatHours } from "@/lib/utils"
 
 const MEMBER_ROLES = [
@@ -27,8 +27,6 @@ const MEMBER_ROLES = [
   "Consultant",
 ]
 
-const initialState: ProjectActionState = {}
-
 export interface MembersManagerProps {
   projectId: string
   members: ProjectMember[]
@@ -38,16 +36,16 @@ export interface MembersManagerProps {
 
 export function MembersManager({
   projectId,
-  members,
+  members: initialMembers,
   availableUsers,
   canManageDevelopers = false,
 }: MembersManagerProps) {
-  const [state, formAction, actionPending] = useActionState(
-    addProjectMembersAction,
-    initialState
+  const { data: members = initialMembers } = useProjectMembersQuery(
+    projectId,
+    initialMembers
   )
-  const [isPending, startTransition] = useTransition()
-  const [, setRemoving] = useState(false)
+  const addMutation = useAddProjectMembersMutation(projectId)
+  const removeMutation = useRemoveProjectMemberMutation(projectId)
   const [selected, setSelected] = useState<string[]>([])
 
   const assignedIds = useMemo(
@@ -69,18 +67,19 @@ export function MembersManager({
     for (const id of selected) {
       formData.append("user_ids", id)
     }
-    startTransition(() => {
-      formAction(formData)
-      setSelected([])
+    addMutation.mutate(formData, {
+      onSuccess: () => setSelected([]),
     })
   }
 
   const onRemove = (userId: string) => {
-    setRemoving(true)
-    startTransition(async () => {
-      await removeProjectMemberAction(projectId, userId)
-      setRemoving(false)
-    })
+    removeMutation.mutate(userId)
+  }
+
+  const pending = addMutation.isPending
+  const state = {
+    error: addMutation.error?.message,
+    success: addMutation.isSuccess ? addMutation.data?.success : undefined,
   }
 
   return (
@@ -165,7 +164,7 @@ export function MembersManager({
           intent="primary"
           size="sm"
           className="mt-4"
-          isPending={actionPending || isPending}
+          isPending={pending}
           isDisabled={selected.length === 0}
         >
           {selected.length > 1

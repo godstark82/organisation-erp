@@ -1,13 +1,7 @@
 "use client"
 
 import { PencilIcon, PlusIcon } from "@heroicons/react/20/solid"
-import { useActionState, useState, useTransition } from "react"
-import {
-  createMilestoneAction,
-  updateMilestoneAction,
-  updateMilestoneStatusAction,
-  type ProjectActionState,
-} from "@/features/projects/actions"
+import { useState } from "react"
 import type { Milestone, MilestoneStatus } from "@/types"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -23,7 +17,14 @@ import {
 } from "@/components/ui/select"
 import { TextField } from "@/components/ui/text-field"
 import { Textarea } from "@/components/ui/textarea"
+import {
+  useCreateMilestoneMutation,
+  useUpdateMilestoneMutation,
+} from "@/features/projects/hooks"
+import { updateMilestoneStatusAction } from "@/features/projects/actions"
 import { formatCurrency, formatDate } from "@/lib/utils"
+import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { queryKeys } from "@/lib/query-keys"
 
 const MILESTONE_STATUSES: { value: MilestoneStatus; label: string }[] = [
   { value: "pending", label: "Pending" },
@@ -31,8 +32,6 @@ const MILESTONE_STATUSES: { value: MilestoneStatus; label: string }[] = [
   { value: "completed", label: "Completed" },
   { value: "overdue", label: "Overdue" },
 ]
-
-const initialState: ProjectActionState = {}
 
 export interface MilestonesListProps {
   projectId: string
@@ -45,27 +44,44 @@ export function MilestonesList({
   milestones,
   inline = false,
 }: MilestonesListProps) {
+  const queryClient = useQueryClient()
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
-  const [state, formAction, actionPending] = useActionState(
-    createMilestoneAction,
-    initialState
-  )
-  const [updateState, updateFormAction, updatePending] = useActionState(
-    updateMilestoneAction,
-    initialState
-  )
-  const [isPending, startTransition] = useTransition()
+  const createMutation = useCreateMilestoneMutation(projectId)
+  const updateMutation = useUpdateMilestoneMutation(projectId)
+  const statusMutation = useMutation({
+    mutationFn: async ({
+      milestoneId,
+      status,
+    }: {
+      milestoneId: string
+      status: MilestoneStatus
+    }) => {
+      await updateMilestoneStatusAction(milestoneId, projectId, status)
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.projects.detail(projectId),
+      })
+      void queryClient.invalidateQueries({ queryKey: queryKeys.projects.all })
+    },
+  })
 
   const editing = milestones.find((m) => m.id === editingId)
+  const stateError = createMutation.error?.message ?? updateMutation.error?.message
+  const createFieldErrors =
+    (createMutation.error as Error & { fieldErrors?: Record<string, string[]> })
+      ?.fieldErrors ?? undefined
+  const updateFieldErrors =
+    (updateMutation.error as Error & { fieldErrors?: Record<string, string[]> })
+      ?.fieldErrors ?? undefined
 
   const onCreate = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     const formData = new FormData(event.currentTarget)
     formData.set("project_id", projectId)
-    startTransition(() => {
-      formAction(formData)
-      setShowForm(false)
+    createMutation.mutate(formData, {
+      onSuccess: () => setShowForm(false),
     })
   }
 
@@ -73,16 +89,13 @@ export function MilestonesList({
     event.preventDefault()
     const formData = new FormData(event.currentTarget)
     formData.set("project_id", projectId)
-    startTransition(() => {
-      updateFormAction(formData)
-      setEditingId(null)
+    updateMutation.mutate(formData, {
+      onSuccess: () => setEditingId(null),
     })
   }
 
   const onStatusChange = (milestoneId: string, status: MilestoneStatus) => {
-    startTransition(async () => {
-      await updateMilestoneStatusAction(milestoneId, projectId, status)
-    })
+    statusMutation.mutate({ milestoneId, status })
   }
 
   return (
@@ -97,9 +110,9 @@ export function MilestonesList({
         </div>
       )}
 
-      {(state?.error || updateState?.error) && (
+      {stateError && (
         <Note intent="danger" className="text-sm">
-          {state?.error ?? updateState?.error}
+          {stateError}
         </Note>
       )}
 
@@ -109,9 +122,9 @@ export function MilestonesList({
           className="space-y-4 rounded-xl border border-border p-5"
         >
           <h4 className="font-medium text-sm/6">New milestone</h4>
-          <MilestoneFields />
+          <MilestoneFields fieldErrors={createFieldErrors} />
           <div className="flex gap-2">
-            <Button type="submit" intent="primary" size="sm" isPending={actionPending || isPending}>
+            <Button type="submit" intent="primary" size="sm" isPending={createMutation.isPending}>
               Create
             </Button>
             <Button type="button" intent="plain" size="sm" onPress={() => setShowForm(false)}>
@@ -128,9 +141,9 @@ export function MilestonesList({
         >
           <input type="hidden" name="id" value={editing.id} />
           <h4 className="font-medium text-sm/6">Edit milestone</h4>
-          <MilestoneFields defaultValues={editing} />
+          <MilestoneFields defaultValues={editing} fieldErrors={updateFieldErrors} />
           <div className="flex gap-2">
-            <Button type="submit" intent="primary" size="sm" isPending={updatePending || isPending}>
+            <Button type="submit" intent="primary" size="sm" isPending={updateMutation.isPending}>
               Save
             </Button>
             <Button type="button" intent="plain" size="sm" onPress={() => setEditingId(null)}>
@@ -213,14 +226,22 @@ export function MilestonesList({
 
 function MilestoneFields({
   defaultValues,
+  fieldErrors,
 }: {
   defaultValues?: Milestone
+  fieldErrors?: Record<string, string[]>
 }) {
   return (
     <>
-      <TextField name="title" isRequired defaultValue={defaultValues?.title ?? ""}>
+      <TextField
+        name="title"
+        isRequired
+        isInvalid={!!fieldErrors?.title}
+        defaultValue={defaultValues?.title ?? ""}
+      >
         <Label>Title</Label>
         <Input />
+        <FieldError>{fieldErrors?.title?.[0]}</FieldError>
       </TextField>
 
       <TextField

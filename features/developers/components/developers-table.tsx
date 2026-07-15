@@ -6,7 +6,7 @@ import {
   NoSymbolIcon,
 } from "@heroicons/react/20/solid"
 import { useRouter, useSearchParams } from "next/navigation"
-import { useCallback, useEffect, useMemo, useState, useTransition } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { ConfirmDialog } from "@/components/shared/confirm-dialog"
 import { EmptyState } from "@/components/shared/empty-state"
 import { FilterBar } from "@/components/shared/filter-bar"
@@ -31,27 +31,27 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import {
-  createDeveloperAction,
-  deactivateDeveloperAction,
-  updateDeveloperAction,
-  type DeveloperActionState,
-} from "@/features/developers/actions"
 import { DeveloperForm } from "@/features/developers/components/developer-form"
+import {
+  useDeactivateDeveloperMutation,
+  useDevelopersQuery,
+} from "@/features/developers/hooks"
 import { STAFF_ROLES } from "@/features/developers/schemas"
 import { useDebounce } from "@/hooks/use-debounce"
 import { ROLE_LABELS } from "@/lib/rbac"
 import type { AppRole, Profile } from "@/types"
 
 interface DevelopersTableProps {
-  developers: Profile[]
+  initialDevelopers: Profile[]
   canManage: boolean
 }
 
-export function DevelopersTable({ developers, canManage }: DevelopersTableProps) {
+export function DevelopersTable({
+  initialDevelopers,
+  canManage,
+}: DevelopersTableProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const [, startTransition] = useTransition()
 
   const [search, setSearch] = useState(searchParams.get("search") ?? "")
   const [role, setRole] = useState(searchParams.get("role") ?? "")
@@ -60,7 +60,10 @@ export function DevelopersTable({ developers, canManage }: DevelopersTableProps)
   const [createOpen, setCreateOpen] = useState(false)
   const [editDeveloper, setEditDeveloper] = useState<Profile | null>(null)
   const [deactivateTarget, setDeactivateTarget] = useState<Profile | null>(null)
-  const [deactivatePending, setDeactivatePending] = useState(false)
+
+  const { data: developers = initialDevelopers } =
+    useDevelopersQuery(initialDevelopers)
+  const deactivateMutation = useDeactivateDeveloperMutation()
 
   const updateParams = useCallback(
     (nextSearch: string, nextRole: string) => {
@@ -99,24 +102,12 @@ export function DevelopersTable({ developers, canManage }: DevelopersTableProps)
 
   const hasActiveFilters = Boolean(search.trim() || role)
 
-  const handleDeactivate = async () => {
+  const handleDeactivate = () => {
     if (!deactivateTarget) return
-    setDeactivatePending(true)
-    const result: DeveloperActionState = await deactivateDeveloperAction(
-      deactivateTarget.id
-    )
-    if (result.error) {
-      setDeactivatePending(false)
-      return
-    }
-    setDeactivateTarget(null)
-    setDeactivatePending(false)
-    router.refresh()
+    deactivateMutation.mutate(deactivateTarget.id, {
+      onSuccess: () => setDeactivateTarget(null),
+    })
   }
-
-  const boundUpdate = editDeveloper
-    ? updateDeveloperAction.bind(null, editDeveloper.id)
-    : null
 
   return (
     <>
@@ -256,12 +247,8 @@ export function DevelopersTable({ developers, canManage }: DevelopersTableProps)
         </ModalHeader>
         <ModalBody>
           <DeveloperForm
-            action={createDeveloperAction}
             mode="create"
-            onSuccess={() => {
-              setCreateOpen(false)
-              startTransition(() => router.refresh())
-            }}
+            onSuccess={() => setCreateOpen(false)}
           />
         </ModalBody>
       </ModalContent>
@@ -276,16 +263,12 @@ export function DevelopersTable({ developers, canManage }: DevelopersTableProps)
           <ModalTitle>Edit developer</ModalTitle>
         </ModalHeader>
         <ModalBody>
-          {editDeveloper && boundUpdate && (
+          {editDeveloper && (
             <DeveloperForm
               key={editDeveloper.id}
-              action={boundUpdate}
               developer={editDeveloper}
               mode="edit"
-              onSuccess={() => {
-                setEditDeveloper(null)
-                startTransition(() => router.refresh())
-              }}
+              onSuccess={() => setEditDeveloper(null)}
             />
           )}
         </ModalBody>
@@ -294,17 +277,21 @@ export function DevelopersTable({ developers, canManage }: DevelopersTableProps)
       <ConfirmDialog
         isOpen={!!deactivateTarget}
         onOpenChange={(open) => {
-          if (!open) setDeactivateTarget(null)
+          if (!open) {
+            setDeactivateTarget(null)
+            deactivateMutation.reset()
+          }
         }}
         title="Deactivate developer?"
         description={
-          deactivateTarget
+          deactivateMutation.error?.message ??
+          (deactivateTarget
             ? `${deactivateTarget.full_name} will no longer appear when assigning projects.`
-            : undefined
+            : undefined)
         }
         confirmLabel="Deactivate"
         intent="danger"
-        isPending={deactivatePending}
+        isPending={deactivateMutation.isPending}
         onConfirm={handleDeactivate}
       />
     </>

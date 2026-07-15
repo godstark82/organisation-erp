@@ -1,7 +1,6 @@
 "use client"
 
-import { useActionState, useState, useTransition } from "react"
-import { useRouter } from "next/navigation"
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { FieldError, Label } from "@/components/ui/field"
 import { ModalBody, ModalContent, ModalHeader, ModalTitle } from "@/components/ui/modal"
@@ -9,62 +8,37 @@ import { Note } from "@/components/ui/note"
 import { TextField } from "@/components/ui/text-field"
 import { Textarea } from "@/components/ui/textarea"
 import {
-  rejectPaymentAction,
-  reviewPaymentAction,
-  verifyPaymentAction,
-  type PaymentActionState,
-} from "@/features/payments/actions"
+  useRejectPaymentMutation,
+  useReviewPaymentMutation,
+  useVerifyPaymentMutation,
+} from "@/features/payments/hooks"
 import type { Payment } from "@/types"
-
-const initialState: PaymentActionState = {}
 
 interface VerifyActionsProps {
   payment: Payment
 }
 
 export function VerifyActions({ payment }: VerifyActionsProps) {
-  const router = useRouter()
-  const [, startTransition] = useTransition()
   const [rejectOpen, setRejectOpen] = useState(false)
-  const [reviewPending, setReviewPending] = useState(false)
-  const [verifyPending, setVerifyPending] = useState(false)
-  const [actionError, setActionError] = useState<string | null>(null)
+  const reviewMutation = useReviewPaymentMutation(payment.id)
+  const verifyMutation = useVerifyPaymentMutation(payment.id)
+  const rejectMutation = useRejectPaymentMutation(payment.id)
 
-  const boundRejectAction = rejectPaymentAction.bind(null, payment.id)
-  const [rejectState, rejectAction, rejectPending] = useActionState(
-    boundRejectAction,
-    initialState
-  )
+  const actionError =
+    reviewMutation.error?.message ??
+    verifyMutation.error?.message ??
+    rejectMutation.error?.message ??
+    null
 
-  const handleReview = () => {
-    setActionError(null)
-    setReviewPending(true)
-    startTransition(async () => {
-      const result = await reviewPaymentAction(payment.id)
-      if (result.error) setActionError(result.error)
-      else router.refresh()
-      setReviewPending(false)
-    })
-  }
-
-  const handleVerify = () => {
-    setActionError(null)
-    setVerifyPending(true)
-    startTransition(async () => {
-      const result = await verifyPaymentAction(payment.id)
-      if (result.error) setActionError(result.error)
-      else router.refresh()
-      setVerifyPending(false)
-    })
-  }
+  const rejectFieldErrors =
+    (rejectMutation.error as Error & { fieldErrors?: Record<string, string[]> })
+      ?.fieldErrors ?? undefined
 
   const handleReject = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     const formData = new FormData(event.currentTarget)
-    startTransition(() => {
-      rejectAction(formData)
-      setRejectOpen(false)
-      router.refresh()
+    rejectMutation.mutate(formData, {
+      onSuccess: () => setRejectOpen(false),
     })
   }
 
@@ -84,7 +58,9 @@ export function VerifyActions({ payment }: VerifyActionsProps) {
       </div>
 
       {actionError && (
-        <Note intent="danger" className="text-sm">{actionError}</Note>
+        <Note intent="danger" className="text-sm">
+          {actionError}
+        </Note>
       )}
 
       <div className="flex flex-wrap gap-2">
@@ -92,10 +68,10 @@ export function VerifyActions({ payment }: VerifyActionsProps) {
           <Button
             intent="secondary"
             size="sm"
-            isDisabled={reviewPending}
-            onPress={handleReview}
+            isDisabled={reviewMutation.isPending}
+            onPress={() => reviewMutation.mutate()}
           >
-            {reviewPending ? "Moving…" : "Move to Under Review"}
+            {reviewMutation.isPending ? "Moving…" : "Move to Under Review"}
           </Button>
         )}
         {canVerifyReject && (
@@ -103,10 +79,10 @@ export function VerifyActions({ payment }: VerifyActionsProps) {
             <Button
               intent="success"
               size="sm"
-              isDisabled={verifyPending}
-              onPress={handleVerify}
+              isDisabled={verifyMutation.isPending}
+              onPress={() => verifyMutation.mutate()}
             >
-              {verifyPending ? "Verifying…" : "Verify payment"}
+              {verifyMutation.isPending ? "Verifying…" : "Verify payment"}
             </Button>
             <Button
               intent="danger"
@@ -129,27 +105,29 @@ export function VerifyActions({ payment }: VerifyActionsProps) {
         </ModalHeader>
         <ModalBody>
           <form onSubmit={handleReject} className="space-y-4">
-            {rejectState?.error && (
-              <Note intent="danger" className="text-sm">{rejectState.error}</Note>
-            )}
             <TextField
               name="rejection_reason"
               isRequired
-              isInvalid={!!rejectState?.fieldErrors?.rejection_reason}
+              isInvalid={!!rejectFieldErrors?.rejection_reason}
             >
               <Label>Rejection reason</Label>
               <Textarea
                 rows={4}
                 placeholder="Explain why this payment is being rejected…"
               />
-              <FieldError>{rejectState?.fieldErrors?.rejection_reason?.[0]}</FieldError>
+              <FieldError>{rejectFieldErrors?.rejection_reason?.[0]}</FieldError>
             </TextField>
             <div className="flex justify-end gap-2">
               <Button intent="plain" size="sm" onPress={() => setRejectOpen(false)}>
                 Cancel
               </Button>
-              <Button type="submit" intent="danger" size="sm" isDisabled={rejectPending}>
-                {rejectPending ? "Rejecting…" : "Reject payment"}
+              <Button
+                type="submit"
+                intent="danger"
+                size="sm"
+                isDisabled={rejectMutation.isPending}
+              >
+                {rejectMutation.isPending ? "Rejecting…" : "Reject payment"}
               </Button>
             </div>
           </form>

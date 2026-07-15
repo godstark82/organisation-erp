@@ -30,15 +30,19 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { ProjectForm } from "@/features/projects/components/project-form"
+import { useProjectsPageQuery } from "@/features/projects/hooks"
 import { formatCurrency, formatDate } from "@/lib/utils"
 
 export interface ProjectsListProps {
-  projects: Project[]
-  clients: Client[]
-  categories: ProjectCategory[]
-  payments: Payment[]
-  developers?: Profile[]
-  canManage?: boolean
+  initialData: {
+    projects: Project[]
+    clients: Client[]
+    categories: ProjectCategory[]
+    payments: Payment[]
+    developers: Profile[]
+    canManage: boolean
+    orgId: string
+  }
 }
 
 function projectPaymentSummary(project: Project, payments: Payment[]) {
@@ -54,14 +58,17 @@ function projectPaymentSummary(project: Project, payments: Payment[]) {
   return { paid, pending, remaining: Math.max(project.budget - paid, 0) }
 }
 
-export function ProjectsList({
-  projects,
-  clients,
-  categories,
-  payments,
-  developers = [],
-  canManage = false,
-}: ProjectsListProps) {
+export function ProjectsList({ initialData }: ProjectsListProps) {
+  const { data = initialData } = useProjectsPageQuery(initialData)
+  const {
+    projects,
+    clients,
+    categories,
+    payments,
+    developers = [],
+    canManage = false,
+  } = data
+
   const router = useRouter()
   const searchParams = useSearchParams()
 
@@ -400,10 +407,6 @@ export function ProjectsList({
             categories={categories}
             developers={developers}
             mode="create"
-            onSuccess={() => {
-              setCreateOpen(false)
-              router.refresh()
-            }}
           />
         </ModalBody>
       </ModalContent>
@@ -437,10 +440,7 @@ export function ProjectsList({
                 start_date: editProject.start_date?.slice(0, 10) ?? "",
                 deadline: editProject.deadline?.slice(0, 10) ?? "",
               }}
-              onSuccess={() => {
-                setEditProject(null)
-                router.refresh()
-              }}
+              onSuccess={() => setEditProject(null)}
             />
           )}
         </ModalBody>

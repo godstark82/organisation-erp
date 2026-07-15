@@ -1,11 +1,9 @@
 "use client"
 
-import { useActionState, useEffect, useTransition } from "react"
 import {
-  createPaymentAction,
-  updatePaymentAction,
-  type PaymentActionState,
-} from "@/features/payments/actions"
+  useCreatePaymentMutation,
+  useUpdatePaymentMutation,
+} from "@/features/payments/hooks"
 import type { Client, Payment, Project } from "@/types"
 import { PAYMENT_STATUSES } from "@/lib/constants"
 import { Button } from "@/components/ui/button"
@@ -15,8 +13,6 @@ import { NativeSelect, NativeSelectContent } from "@/components/ui/native-select
 import { Note } from "@/components/ui/note"
 import { TextField } from "@/components/ui/text-field"
 import { Textarea } from "@/components/ui/textarea"
-
-const initialState: PaymentActionState = {}
 
 export interface PaymentFormProps {
   projects: Project[]
@@ -35,23 +31,20 @@ export function PaymentForm({
   defaultProjectId,
   onSuccess,
 }: PaymentFormProps) {
-  const boundUpdate = updatePaymentAction.bind(null, payment?.id ?? "")
-  const [state, formAction, actionPending] = useActionState(
-    mode === "edit" ? boundUpdate : createPaymentAction,
-    initialState
-  )
-  const [isPending, startTransition] = useTransition()
-  const pending = actionPending || isPending
+  const createMutation = useCreatePaymentMutation()
+  const updateMutation = useUpdatePaymentMutation(payment?.id ?? "")
+  const mutation = mode === "edit" ? updateMutation : createMutation
+  const pending = mutation.isPending
 
-  useEffect(() => {
-    if (state?.success) onSuccess?.()
-  }, [state?.success, onSuccess])
+  const fieldErrors =
+    (mutation.error as Error & { fieldErrors?: Record<string, string[]> })
+      ?.fieldErrors ?? undefined
 
   const onSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     const formData = new FormData(event.currentTarget)
-    startTransition(() => {
-      formAction(formData)
+    mutation.mutate(formData, {
+      onSuccess: () => onSuccess?.(),
     })
   }
 
@@ -64,9 +57,9 @@ export function PaymentForm({
 
   return (
     <form onSubmit={onSubmit} className="space-y-5">
-      {state?.error && (
+      {mutation.error && (
         <Note intent="danger" className="text-sm">
-          {state.error}
+          {mutation.error.message}
         </Note>
       )}
 
@@ -89,8 +82,8 @@ export function PaymentForm({
               ))}
             </NativeSelectContent>
           </NativeSelect>
-          {state?.fieldErrors?.project_id?.[0] && (
-            <FieldError>{state.fieldErrors.project_id[0]}</FieldError>
+          {fieldErrors?.project_id?.[0] && (
+            <FieldError>{fieldErrors.project_id[0]}</FieldError>
           )}
         </div>
 
@@ -115,14 +108,14 @@ export function PaymentForm({
           <TextField
             name="amount"
             isRequired
-            isInvalid={!!state?.fieldErrors?.amount}
+            isInvalid={!!fieldErrors?.amount}
             defaultValue={
               payment?.amount != null ? String(payment.amount) : ""
             }
           >
             <Label>Amount</Label>
             <Input type="number" min={1} step={0.01} />
-            <FieldError>{state?.fieldErrors?.amount?.[0]}</FieldError>
+            <FieldError>{fieldErrors?.amount?.[0]}</FieldError>
           </TextField>
 
           <div className="space-y-1.5">
