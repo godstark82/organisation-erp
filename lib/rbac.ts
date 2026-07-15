@@ -33,6 +33,9 @@ export const ROLE_PERMISSIONS: Record<AppRole, string[]> = {
   developer: [
     "dashboard.view",
     "projects.view",
+    "payments.view",
+    "payments.create",
+    "payments.verify",
     "calendar.view",
   ],
   designer: [
@@ -57,6 +60,7 @@ export const ROLE_PERMISSIONS: Record<AppRole, string[]> = {
     "projects.create",
     "projects.update",
     "payments.view",
+    "payments.create",
     "calendar.view",
   ],
 }
@@ -82,7 +86,12 @@ export function canAccessRoute(role: AppRole, path: string): boolean {
     )
   }
 
-  if (role === "developer" || role === "designer") {
+  if (role === "developer") {
+    const denied = ["/clients", "/developers", "/reports", "/settings"]
+    return !denied.some((p) => path === p || path.startsWith(`${p}/`))
+  }
+
+  if (role === "designer") {
     const denied = ["/clients", "/developers", "/payments", "/reports", "/settings"]
     return !denied.some((p) => path === p || path.startsWith(`${p}/`))
   }
@@ -98,8 +107,19 @@ export function isStaffRole(role: AppRole) {
   return role !== "client"
 }
 
+/** Org-level verify roles (also used with project membership for dual accept). */
 export function canVerifyPayments(role: AppRole) {
   return role === "super_admin" || role === "manager" || role === "accountant"
+}
+
+/** Staff-side acceptance: super admin, manager, accountant, or assigned later via project membership. */
+export function canAcceptPaymentsAsStaffRole(role: AppRole) {
+  return (
+    role === "super_admin" ||
+    role === "manager" ||
+    role === "accountant" ||
+    role === "developer"
+  )
 }
 
 export function canSeeInternalNotes(role: AppRole) {

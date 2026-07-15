@@ -2,41 +2,36 @@ import { notFound } from "next/navigation"
 import { Suspense } from "react"
 import { LoadingSkeleton } from "@/components/shared/loading-skeleton"
 import { PaymentsTable } from "@/features/payments/components/payments-table"
-import { requireSession } from "@/lib/auth/session"
-import { ORG_ID } from "@/lib/data/demo-store"
-import { listClients } from "@/lib/repositories/clients.repository"
-import { listPayments } from "@/lib/repositories/payments.repository"
-import { getProject, listProjects } from "@/lib/repositories/projects.repository"
-import { hasPermission } from "@/lib/rbac"
+import { fetchPaymentsPageQuery } from "@/features/payments/queries"
+import { getProject } from "@/lib/repositories/projects.repository"
 
 export default async function ProjectPaymentsPage({
   params,
 }: {
   params: Promise<{ id: string }>
 }) {
-  const session = await requireSession()
   const { id } = await params
   const project = await getProject(id)
   if (!project) notFound()
 
-  const orgId = project.organization_id ?? ORG_ID
-  const canManage =
-    hasPermission(session.permissions, "payments.create") ||
-    hasPermission(session.permissions, "payments.verify")
-
-  const [payments, projects, clients] = await Promise.all([
-    listPayments({ projectId: id, organizationId: orgId }),
-    listProjects({ organizationId: orgId }),
-    listClients({ organizationId: orgId }),
-  ])
+  const data = await fetchPaymentsPageQuery({ projectId: id })
 
   return (
     <Suspense fallback={<LoadingSkeleton variant="table" />}>
       <PaymentsTable
-        initialPayments={payments}
-        initialProjects={projects}
-        initialClients={clients}
-        canManage={canManage}
+        initialPayments={data.payments}
+        initialTotal={data.total}
+        initialPage={data.page}
+        initialProjects={data.projects}
+        initialClients={data.clients}
+        initialProjectPaymentTotals={data.projectPaymentTotals}
+        canManage={data.canManage}
+        canCreate={data.canCreate}
+        canEdit={data.canEdit}
+        isClient={data.isClient}
+        lockedClientId={
+          data.lockedClientId ?? (data.isClient ? project.client_id : null)
+        }
         defaultProjectId={id}
         embedded
       />

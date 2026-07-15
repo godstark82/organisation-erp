@@ -413,6 +413,28 @@ export async function listProjectMembers(
   }))
 }
 
+export async function isProjectMember(
+  projectId: string,
+  userId: string
+): Promise<boolean> {
+  if (isDemoMode()) {
+    return getDemoStore().projectMembers.some(
+      (m) => m.project_id === projectId && m.user_id === userId
+    )
+  }
+
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from("project_members")
+    .select("id")
+    .eq("project_id", projectId)
+    .eq("user_id", userId)
+    .maybeSingle()
+
+  if (error) throwDbError(error)
+  return Boolean(data)
+}
+
 export async function addProjectMember(
   input: Omit<ProjectMember, "id" | "assigned_at">,
   actorId?: string | null

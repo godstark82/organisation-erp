@@ -1,17 +1,10 @@
 import { z } from "zod"
-import { PAYMENT_STATUSES } from "@/lib/constants"
-
-const paymentStatusValues = PAYMENT_STATUSES.map((s) => s.value) as [
-  (typeof PAYMENT_STATUSES)[number]["value"],
-  ...(typeof PAYMENT_STATUSES)[number]["value"][],
-]
 
 export const createPaymentSchema = z.object({
   project_id: z.string().uuid("Select a project"),
   client_id: z.string().uuid("Select a client").optional().or(z.literal("")),
   amount: z.coerce.number().positive("Amount must be greater than 0"),
   currency: z.string().default("INR"),
-  status: z.enum(paymentStatusValues).default("pending"),
   paid_at: z.string().optional().nullable(),
   utr: z.string().optional().nullable(),
   transaction_id: z.string().optional().nullable(),
@@ -22,11 +15,13 @@ export const updatePaymentSchema = createPaymentSchema.partial().extend({
   id: z.string().uuid(),
 })
 
-export const markPaidSchema = z.object({
+export const acceptPaymentSchema = z.object({
   utr: z.string().optional().nullable(),
   transaction_id: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
 })
+
+export const markPaidSchema = acceptPaymentSchema
 
 export const rejectPaymentSchema = z.object({
   rejection_reason: z.string().min(3, "Please provide a rejection reason"),

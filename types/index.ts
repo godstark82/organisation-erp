@@ -326,6 +326,12 @@ export interface Payment {
   verified_by: string | null
   verified_at: string | null
   rejection_reason: string | null
+  /** Client has accepted this payment record */
+  client_accepted_at: string | null
+  client_accepted_by: string | null
+  /** Project developer / super admin (staff) has accepted */
+  staff_accepted_at: string | null
+  staff_accepted_by: string | null
   created_by: string | null
   created_at: string
   updated_at: string
@@ -493,6 +499,74 @@ export interface DashboardStats {
   projectsSeries: { status: string; count: number }[]
   teamWorkload: { name: string; projects: number }[]
   paymentTrend: { month: string; received: number; pending: number }[]
+}
+
+export interface ClientDashboardStats {
+  clientName: string
+  /** Sum of max(0, budget − verified paid) across the client's projects */
+  amountDue: number
+  /** Total verified payments received from this client */
+  amountPaid: number
+  /** Total project budgets */
+  totalBudget: number
+  /** lead / discussion / planning / on_hold */
+  pendingProjects: number
+  /** in_progress / testing / client_review */
+  activeProjects: number
+  completedProjects: number
+  /** Payments recorded by team waiting for client acceptance */
+  awaitingYourAcceptanceCount: number
+  awaitingYourAcceptanceAmount: number
+  awaitingYourAcceptance: Array<{
+    id: string
+    amount: number
+    currency: string
+    projectName: string
+    createdAt: string
+  }>
+  /** Projects that still have remaining budget balance */
+  projectsWithBalance: Array<{
+    id: string
+    name: string
+    status: ProjectStatus
+    budget: number
+    paid: number
+    remaining: number
+    currency: string
+  }>
+}
+
+/** Agency / staff dashboard — mirror of client view from the receivable side */
+export interface AgencyDashboardStats {
+  /** Sum of max(0, budget − verified paid) still to collect */
+  amountLeft: number
+  /** Total verified payments received */
+  amountReceived: number
+  totalBudget: number
+  pendingProjects: number
+  activeProjects: number
+  completedProjects: number
+  /** Payments waiting for staff acceptance */
+  awaitingYourAcceptanceCount: number
+  awaitingYourAcceptanceAmount: number
+  awaitingYourAcceptance: Array<{
+    id: string
+    amount: number
+    currency: string
+    projectName: string
+    clientName: string
+    createdAt: string
+  }>
+  projectsWithBalance: Array<{
+    id: string
+    name: string
+    status: ProjectStatus
+    clientName: string
+    budget: number
+    paid: number
+    remaining: number
+    currency: string
+  }>
 }
 
 export interface SessionUser {

@@ -7,8 +7,38 @@ import {
 import { dateOnly } from "@/lib/data/demo-utils"
 import { isDemoMode } from "@/lib/data/mode"
 import { createClient } from "@/lib/supabase/server"
-import type { DashboardStats } from "@/types"
+import type {
+  AgencyDashboardStats,
+  ClientDashboardStats,
+  DashboardStats,
+  Payment,
+  Project,
+  ProjectStatus,
+} from "@/types"
+import {
+  hasClientAccepted,
+  hasStaffAccepted,
+} from "@/features/payments/lib/acceptance"
 import { listPaymentsAwaitingVerification } from "./payments.repository"
+import { listProjects } from "./projects.repository"
+
+/** Pre-delivery / waiting statuses */
+const PENDING_PROJECT_STATUSES: ProjectStatus[] = [
+  "lead",
+  "discussion",
+  "planning",
+  "on_hold",
+]
+/** Delivery in flight */
+const ACTIVE_PROJECT_STATUSES: ProjectStatus[] = [
+  "in_progress",
+  "testing",
+  "client_review",
+]
+
+function countByStatuses(projects: Project[], statuses: ProjectStatus[]) {
+  return projects.filter((p) => statuses.includes(p.status)).length
+}
 
 export async function getDashboardStats(
   organizationId?: string
@@ -238,4 +268,304 @@ export async function getDashboardStats(
     teamWorkload: [],
     paymentTrend: [],
   }
+}
+
+function buildClientDashboardStats(
+  clientName: string,
+  projects: Project[],
+  payments: Payment[]
+): ClientDashboardStats {
+  const clientProjects = projects
+  const projectIds = new Set(clientProjects.map((p) => p.id))
+  const clientPayments = payments.filter(
+    (p) =>
+      projectIds.has(p.project_id) ||
+      clientProjects.some((proj) => proj.id === p.project_id)
+  )
+
+  const paidByProject = new Map<string, number>()
+  for (const payment of clientPayments) {
+    if (payment.status !== "verified") continue
+    paidByProject.set(
+      payment.project_id,
+      (paidByProject.get(payment.project_id) ?? 0) + payment.amount
+    )
+  }
+
+  let amountPaid = 0
+  let totalBudget = 0
+  let amountDue = 0
+  const projectsWithBalance: ClientDashboardStats["projectsWithBalance"] = []
+
+  for (const project of clientProjects) {
+    const paid = paidByProject.get(project.id) ?? 0
+    const remaining = Math.max(project.budget - paid, 0)
+    amountPaid += paid
+    totalBudget += project.budget
+    amountDue += remaining
+    if (remaining > 0 && project.status !== "cancelled") {
+      projectsWithBalance.push({
+        id: project.id,
+        name: project.name,
+        status: project.status,
+        budget: project.budget,
+        paid,
+        remaining,
+        currency: project.currency ?? "INR",
+      })
+    }
+  }
+
+  projectsWithBalance.sort((a, b) => b.remaining - a.remaining)
+
+  const awaiting = clientPayments.filter(
+    (p) =>
+      p.status !== "verified" &&
+      p.status !== "disputed" &&
+      hasStaffAccepted(p) &&
+      !hasClientAccepted(p)
+  )
+
+  const projectNameById = new Map(clientProjects.map((p) => [p.id, p.name]))
+
+  return {
+    clientName,
+    amountDue,
+    amountPaid,
+    totalBudget,
+    pendingProjects: countByStatuses(clientProjects, PENDING_PROJECT_STATUSES),
+    activeProjects: countByStatuses(clientProjects, ACTIVE_PROJECT_STATUSES),
+    completedProjects: clientProjects.filter((p) => p.status === "completed")
+      .length,
+    awaitingYourAcceptanceCount: awaiting.length,
+    awaitingYourAcceptanceAmount: awaiting.reduce((s, p) => s + p.amount, 0),
+    awaitingYourAcceptance: awaiting
+      .slice()
+      .sort((a, b) => b.created_at.localeCompare(a.created_at))
+      .slice(0, 8)
+      .map((p) => ({
+        id: p.id,
+        amount: p.amount,
+        currency: p.currency ?? "INR",
+        projectName: projectNameById.get(p.project_id) ?? "Project",
+        createdAt: p.created_at,
+      })),
+    projectsWithBalance: projectsWithBalance.slice(0, 8),
+  }
+}
+
+export async function getClientDashboardStats(
+  clientId: string,
+  organizationId?: string
+): Promise<ClientDashboardStats> {
+  const orgId = organizationId ?? ORG_ID
+
+  if (isDemoMode()) {
+    const store = getDemoStore()
+    const client = store.clients.find((c) => c.id === clientId)
+    const projects = store.projects.filter(
+      (p) => p.organization_id === orgId && p.client_id === clientId
+    )
+    const payments = store.payments
+      .filter((p) => p.organization_id === orgId && p.client_id === clientId)
+      .map((p) => enrichPaymentIfNeeded(p))
+
+    return buildClientDashboardStats(
+      client?.company_name ?? "Client",
+      projects,
+      payments
+    )
+  }
+
+  const supabase = await createClient()
+
+  const [{ data: client }, { data: projects }, { data: payments }] =
+    await Promise.all([
+      supabase
+        .from("clients")
+        .select("company_name")
+        .eq("id", clientId)
+        .maybeSingle(),
+      supabase
+        .from("projects")
+        .select("*")
+        .eq("organization_id", orgId)
+        .eq("client_id", clientId),
+      supabase
+        .from("payments")
+        .select("*")
+        .eq("organization_id", orgId)
+        .eq("client_id", clientId),
+    ])
+
+  return buildClientDashboardStats(
+    client?.company_name ?? "Client",
+    (projects ?? []) as Project[],
+    (payments ?? []) as Payment[]
+  )
+}
+
+function enrichPaymentIfNeeded(payment: Payment): Payment {
+  return {
+    ...payment,
+    client_accepted_at: payment.client_accepted_at ?? null,
+    client_accepted_by: payment.client_accepted_by ?? null,
+    staff_accepted_at: payment.staff_accepted_at ?? null,
+    staff_accepted_by: payment.staff_accepted_by ?? null,
+  }
+}
+
+export interface AgencyDashboardFilters {
+  organizationId?: string
+  /** Restrict to projects where this user is a member */
+  memberUserId?: string
+  categoryId?: string
+}
+
+function buildAgencyDashboardStats(
+  projects: Project[],
+  payments: Payment[],
+  clientNameById: Map<string, string>
+): AgencyDashboardStats {
+  const projectIds = new Set(projects.map((p) => p.id))
+  const scopedPayments = payments.filter((p) => projectIds.has(p.project_id))
+
+  const paidByProject = new Map<string, number>()
+  for (const payment of scopedPayments) {
+    if (payment.status !== "verified") continue
+    paidByProject.set(
+      payment.project_id,
+      (paidByProject.get(payment.project_id) ?? 0) + payment.amount
+    )
+  }
+
+  let amountReceived = 0
+  let totalBudget = 0
+  let amountLeft = 0
+  const projectsWithBalance: AgencyDashboardStats["projectsWithBalance"] = []
+
+  for (const project of projects) {
+    const paid = paidByProject.get(project.id) ?? 0
+    const remaining = Math.max(project.budget - paid, 0)
+    amountReceived += paid
+    totalBudget += project.budget
+    amountLeft += remaining
+    if (remaining > 0 && project.status !== "cancelled") {
+      projectsWithBalance.push({
+        id: project.id,
+        name: project.name,
+        status: project.status,
+        clientName:
+          project.client?.company_name ??
+          (project.client_id
+            ? clientNameById.get(project.client_id)
+            : undefined) ??
+          "Client",
+        budget: project.budget,
+        paid,
+        remaining,
+        currency: project.currency ?? "INR",
+      })
+    }
+  }
+
+  projectsWithBalance.sort((a, b) => b.remaining - a.remaining)
+
+  const awaiting = scopedPayments.filter(
+    (p) =>
+      p.status !== "verified" &&
+      p.status !== "disputed" &&
+      hasClientAccepted(p) &&
+      !hasStaffAccepted(p)
+  )
+
+  const projectNameById = new Map(projects.map((p) => [p.id, p.name]))
+  const projectClientById = new Map(
+    projects.map((p) => [
+      p.id,
+      p.client?.company_name ??
+        (p.client_id ? clientNameById.get(p.client_id) : undefined) ??
+        "Client",
+    ])
+  )
+
+  return {
+    amountLeft,
+    amountReceived,
+    totalBudget,
+    pendingProjects: countByStatuses(projects, PENDING_PROJECT_STATUSES),
+    activeProjects: countByStatuses(projects, ACTIVE_PROJECT_STATUSES),
+    completedProjects: projects.filter((p) => p.status === "completed").length,
+    awaitingYourAcceptanceCount: awaiting.length,
+    awaitingYourAcceptanceAmount: awaiting.reduce((s, p) => s + p.amount, 0),
+    awaitingYourAcceptance: awaiting
+      .slice()
+      .sort((a, b) => b.created_at.localeCompare(a.created_at))
+      .slice(0, 8)
+      .map((p) => ({
+        id: p.id,
+        amount: p.amount,
+        currency: p.currency ?? "INR",
+        projectName: projectNameById.get(p.project_id) ?? "Project",
+        clientName: projectClientById.get(p.project_id) ?? "Client",
+        createdAt: p.created_at,
+      })),
+    projectsWithBalance: projectsWithBalance.slice(0, 8),
+  }
+}
+
+export async function getAgencyDashboardStats(
+  filters?: AgencyDashboardFilters
+): Promise<AgencyDashboardStats> {
+  const orgId = filters?.organizationId ?? ORG_ID
+
+  let projects = await listProjects({
+    organizationId: orgId,
+    memberUserId: filters?.memberUserId,
+  })
+
+  if (filters?.categoryId) {
+    projects = projects.filter((p) => p.category_id === filters.categoryId)
+  }
+
+  if (isDemoMode()) {
+    const store = getDemoStore()
+    const projectIds = new Set(projects.map((p) => p.id))
+    const payments = store.payments
+      .filter((p) => p.organization_id === orgId && projectIds.has(p.project_id))
+      .map((p) => enrichPaymentIfNeeded(p))
+    const clientNameById = new Map(
+      store.clients.map((c) => [c.id, c.company_name])
+    )
+    return buildAgencyDashboardStats(projects, payments, clientNameById)
+  }
+
+  const supabase = await createClient()
+  const projectIds = projects.map((p) => p.id)
+
+  if (projectIds.length === 0) {
+    return buildAgencyDashboardStats([], [], new Map())
+  }
+
+  const [{ data: payments }, { data: clients }] = await Promise.all([
+    supabase
+      .from("payments")
+      .select("*")
+      .eq("organization_id", orgId)
+      .in("project_id", projectIds),
+    supabase
+      .from("clients")
+      .select("id, company_name")
+      .eq("organization_id", orgId),
+  ])
+
+  const clientNameById = new Map(
+    (clients ?? []).map((c) => [c.id as string, c.company_name as string])
+  )
+
+  return buildAgencyDashboardStats(
+    projects,
+    ((payments ?? []) as Payment[]).map(enrichPaymentIfNeeded),
+    clientNameById
+  )
 }

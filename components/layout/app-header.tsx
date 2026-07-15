@@ -6,8 +6,9 @@ import {
   MoonIcon,
   SunIcon,
 } from "@heroicons/react/24/outline"
-import { useTheme } from "next-themes"
+import { useTheme } from "@/components/theme-provider"
 import { usePathname } from "next/navigation"
+import { useEffect, useState } from "react"
 import { logout } from "@/features/auth/actions"
 import type { Notification, SessionUser } from "@/types"
 import { Avatar } from "@/components/ui/avatar"
@@ -87,13 +88,21 @@ function useBreadcrumbs() {
 
 function ThemeToggle() {
   const { resolvedTheme, setTheme } = useTheme()
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  const isDark = mounted && resolvedTheme === "dark"
 
   return (
     <Button
       intent="plain"
       size="sq-sm"
-      aria-label="Toggle theme"
-      onPress={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
+      aria-label={isDark ? "Switch to light theme" : "Switch to dark theme"}
+      isDisabled={!mounted}
+      onPress={() => setTheme(isDark ? "light" : "dark")}
     >
       <SunIcon className="size-4 dark:hidden" />
       <MoonIcon className="hidden size-4 dark:block" />

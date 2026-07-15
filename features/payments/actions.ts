@@ -3,7 +3,9 @@
 import { revalidatePath } from "next/cache"
 import { requirePermission, requireSession } from "@/lib/auth/session"
 import { ORG_ID } from "@/lib/data/demo-store"
+import { getClientByPortalUserId } from "@/lib/repositories/clients.repository"
 import {
+  acceptPayment,
   addDisputeMessage,
   addPaymentProof,
   createDispute,
@@ -11,18 +13,15 @@ import {
   deletePayment,
   getDispute,
   getPayment,
-  markPaidByClient,
   rejectPayment,
   updatePayment,
-  updatePaymentStatus,
-  verifyPayment,
 } from "@/lib/repositories/payments.repository"
-import { getProject } from "@/lib/repositories/projects.repository"
-import { canVerifyPayments, hasPermission } from "@/lib/rbac"
+import { getProject, isProjectMember } from "@/lib/repositories/projects.repository"
+import { hasPermission } from "@/lib/rbac"
 import type { PaymentDisputeMessage } from "@/types"
 import {
+  acceptPaymentSchema,
   createPaymentSchema,
-  markPaidSchema,
   raiseDisputeSchema,
   rejectPaymentSchema,
   replyDisputeSchema,
@@ -88,13 +87,13 @@ export async function createPaymentAction(
 ): Promise<PaymentActionState> {
   const session = await requirePermission("payments.create")
   const orgId = orgIdFromSession(session)
+  const isClient = session.profile.role === "client"
 
   const parsed = createPaymentSchema.safeParse({
     project_id: formData.get("project_id"),
     client_id: formData.get("client_id") || undefined,
     amount: formData.get("amount"),
     currency: formData.get("currency") || "INR",
-    status: formData.get("status") || "pending",
     paid_at: formData.get("paid_at") || null,
     utr: formData.get("utr") || null,
     transaction_id: formData.get("transaction_id") || null,
@@ -109,7 +108,26 @@ export async function createPaymentAction(
   const project = await getProject(data.project_id)
   if (!project) return { error: "Project not found" }
 
-  const clientId = data.client_id || project.client_id
+  let clientId = data.client_id || project.client_id
+
+  if (isClient) {
+    const linked = await getClientByPortalUserId(session.id)
+    if (!linked) {
+      return {
+        error:
+          "Your account is not linked to a client profile. Ask your agency to create portal access.",
+      }
+    }
+    if (project.client_id !== linked.id) {
+      return { error: "You can only record payments for your own projects" }
+    }
+    clientId = linked.id
+  } else if (session.profile.role === "developer") {
+    if (!(await isProjectMember(data.project_id, session.id))) {
+      return { error: "You can only record payments for projects you are assigned to" }
+    }
+  }
+
   if (!clientId) {
     return { error: "Select a client or assign one to the project first" }
   }
@@ -122,12 +140,12 @@ export async function createPaymentAction(
         client_id: clientId,
         amount: data.amount,
         currency: data.currency,
-        status: data.status,
         paid_at: data.paid_at || null,
         utr: data.utr,
         transaction_id: data.transaction_id,
         notes: data.notes,
         created_by: session.id,
+        created_by_side: isClient ? "client" : "staff",
         invoice_id: null,
       },
       session.id
@@ -137,7 +155,12 @@ export async function createPaymentAction(
     revalidatePath(`/projects/${data.project_id}`)
     revalidatePath(`/projects/${data.project_id}/payments`)
     revalidatePath("/dashboard")
-    return { success: "Payment recorded", paymentId: payment.id }
+    return {
+      success: isClient
+        ? "Payment recorded. Waiting for the project team to accept."
+        : "Payment recorded. Waiting for the client to accept.",
+      paymentId: payment.id,
+    }
   } catch (err) {
     return {
       error: err instanceof Error ? err.message : "Failed to create payment",
@@ -158,7 +181,6 @@ export async function updatePaymentAction(
     client_id: formData.get("client_id") || undefined,
     amount: formData.get("amount") || undefined,
     currency: formData.get("currency") || undefined,
-    status: formData.get("status") || undefined,
     paid_at: formData.get("paid_at") || null,
     utr: formData.get("utr") || null,
     transaction_id: formData.get("transaction_id") || null,
@@ -211,7 +233,7 @@ export async function deletePaymentAction(
   }
 }
 
-export async function markPaidAction(
+export async function acceptPaymentAction(
   paymentId: string,
   _prev: PaymentActionState | null,
   formData: FormData
@@ -221,15 +243,7 @@ export async function markPaidAction(
   const payment = await getPayment(paymentId)
   if (!payment) return { error: "Payment not found" }
 
-  if (session.profile.role !== "client") {
-    return { error: "Only clients can mark payments as paid" }
-  }
-
-  if (payment.status !== "pending" && payment.status !== "rejected") {
-    return { error: "This payment cannot be marked as paid in its current state" }
-  }
-
-  const parsed = markPaidSchema.safeParse({
+  const parsed = acceptPaymentSchema.safeParse({
     utr: formData.get("utr"),
     transaction_id: formData.get("transaction_id"),
     notes: formData.get("notes"),
@@ -239,74 +253,74 @@ export async function markPaidAction(
     return { fieldErrors: fieldErrorsFromZod(parsed.error) }
   }
 
-  const proofs = formData.getAll("proofs") as File[]
-  const hasProof = proofs.some((f) => f instanceof File && f.size > 0)
-  if (!hasProof && !parsed.data.utr?.trim() && !parsed.data.transaction_id?.trim()) {
-    return { error: "Upload a payment proof or provide UTR / transaction ID" }
-  }
-
   try {
     const orgId = orgIdFromSession(session)
-    await markPaidByClient(paymentId, session, {
+    const updated = await acceptPayment(paymentId, session, {
       utr: parsed.data.utr?.trim() || undefined,
       transaction_id: parsed.data.transaction_id?.trim() || undefined,
       notes: parsed.data.notes?.trim() || undefined,
     })
+    if (!updated) return { error: "Payment not found" }
 
     await processProofFiles(formData, paymentId, orgId, session.id)
 
     revalidatePath("/payments")
     revalidatePath(`/payments/${paymentId}`)
-    return { success: "Payment marked as paid. Awaiting admin verification." }
+    if (updated.project_id) {
+      revalidatePath(`/projects/${updated.project_id}/payments`)
+    }
+
+    const verified = updated.status === "verified"
+    return {
+      success: verified
+        ? "Payment verified — both sides accepted."
+        : session.profile.role === "client"
+          ? "Accepted. Waiting for the project team to accept."
+          : "Accepted. Waiting for the client to accept.",
+    }
   } catch (err) {
     return {
-      error: err instanceof Error ? err.message : "Failed to mark payment as paid",
+      error: err instanceof Error ? err.message : "Failed to accept payment",
     }
   }
 }
 
-export async function reviewPaymentAction(
-  paymentId: string
+/** @deprecated Prefer acceptPaymentAction */
+export async function markPaidAction(
+  paymentId: string,
+  prev: PaymentActionState | null,
+  formData: FormData
 ): Promise<PaymentActionState> {
-  const session = await requirePermission("payments.verify")
+  return acceptPaymentAction(paymentId, prev, formData)
+}
 
-  if (!canVerifyPayments(session.profile.role)) {
-    return { error: "Insufficient permissions" }
-  }
-
-  try {
-    const updated = await updatePaymentStatus(
-      paymentId,
-      "under_review",
-      session
-    )
-    if (!updated) return { error: "Payment not found" }
-
-    revalidatePath("/payments")
-    revalidatePath(`/payments/${paymentId}`)
-    return { success: "Payment moved to under review" }
-  } catch (err) {
-    return {
-      error: err instanceof Error ? err.message : "Failed to update payment",
-    }
+export async function reviewPaymentAction(
+  _paymentId: string
+): Promise<PaymentActionState> {
+  return {
+    error: "Under-review is no longer used. Accept the payment instead.",
   }
 }
 
 export async function verifyPaymentAction(
   paymentId: string
 ): Promise<PaymentActionState> {
-  const session = await requirePermission("payments.verify")
-
+  const session = await requireSession()
   try {
-    const updated = await verifyPayment(paymentId, session)
+    const updated = await acceptPayment(paymentId, session)
     if (!updated) return { error: "Payment not found" }
 
     revalidatePath("/payments")
     revalidatePath(`/payments/${paymentId}`)
-    return { success: "Payment verified successfully" }
+    return {
+      success:
+        updated.status === "verified"
+          ? "Payment verified — both sides accepted."
+          : "Accepted. Waiting for the other party.",
+    }
   } catch (err) {
     return {
-      error: err instanceof Error ? err.message : "Failed to verify payment",
+      error: err instanceof Error ? err.message : "Failed to accept payment",
     }
   }
 }
@@ -316,7 +330,7 @@ export async function rejectPaymentAction(
   _prev: PaymentActionState | null,
   formData: FormData
 ): Promise<PaymentActionState> {
-  const session = await requirePermission("payments.verify")
+  const session = await requireSession()
 
   const parsed = rejectPaymentSchema.safeParse({
     rejection_reason: formData.get("rejection_reason"),
@@ -336,7 +350,7 @@ export async function rejectPaymentAction(
 
     revalidatePath("/payments")
     revalidatePath(`/payments/${paymentId}`)
-    return { success: "Payment rejected" }
+    return { success: "Payment rejected — both sides must accept again to verify." }
   } catch (err) {
     return {
       error: err instanceof Error ? err.message : "Failed to reject payment",

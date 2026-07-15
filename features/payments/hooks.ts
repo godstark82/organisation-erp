@@ -2,19 +2,18 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import {
+  acceptPaymentAction,
   createPaymentAction,
   deletePaymentAction,
-  markPaidAction,
   raiseDisputeAction,
   rejectPaymentAction,
   replyDisputeAction,
-  reviewPaymentAction,
   updatePaymentAction,
-  verifyPaymentAction,
 } from "@/features/payments/actions"
 import {
   fetchPaymentQuery,
   fetchPaymentsPageQuery,
+  type PaymentsListFilters,
 } from "@/features/payments/queries"
 import { assertActionSuccess } from "@/lib/query/action-result"
 import { queryKeys } from "@/lib/query-keys"
@@ -23,13 +22,22 @@ import type { Payment } from "@/types"
 type PaymentsPageData = Awaited<ReturnType<typeof fetchPaymentsPageQuery>>
 
 export function usePaymentsPageQuery(
-  projectId?: string,
+  filters: PaymentsListFilters = {},
   initialData?: PaymentsPageData
 ) {
+  const page = Math.max(1, filters.page ?? 1)
   return useQuery({
-    queryKey: queryKeys.payments.list({ projectId }),
-    queryFn: () => fetchPaymentsPageQuery(projectId),
+    queryKey: queryKeys.payments.list({
+      projectId: filters.projectId,
+      page: String(page),
+      status: filters.status || undefined,
+      search: filters.search || undefined,
+      from: filters.dateFrom || undefined,
+      to: filters.dateTo || undefined,
+    }),
+    queryFn: () => fetchPaymentsPageQuery({ ...filters, page }),
     initialData,
+    placeholderData: (previous) => previous,
   })
 }
 
@@ -84,20 +92,26 @@ export function useDeletePaymentMutation() {
   })
 }
 
-export function useMarkPaidMutation(paymentId: string) {
+export function useAcceptPaymentMutation(paymentId: string) {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async (formData: FormData) =>
-      assertActionSuccess(await markPaidAction(paymentId, null, formData)),
+      assertActionSuccess(await acceptPaymentAction(paymentId, null, formData)),
     onSuccess: () => invalidatePayments(queryClient, paymentId),
   })
+}
+
+export function useMarkPaidMutation(paymentId: string) {
+  return useAcceptPaymentMutation(paymentId)
 }
 
 export function useVerifyPaymentMutation(paymentId: string) {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async () =>
-      assertActionSuccess(await verifyPaymentAction(paymentId)),
+      assertActionSuccess(
+        await acceptPaymentAction(paymentId, null, new FormData())
+      ),
     onSuccess: () => invalidatePayments(queryClient, paymentId),
   })
 }
@@ -111,12 +125,11 @@ export function useRejectPaymentMutation(paymentId: string) {
   })
 }
 
-export function useReviewPaymentMutation(paymentId: string) {
-  const queryClient = useQueryClient()
+export function useReviewPaymentMutation(_paymentId: string) {
   return useMutation({
-    mutationFn: async () =>
-      assertActionSuccess(await reviewPaymentAction(paymentId)),
-    onSuccess: () => invalidatePayments(queryClient, paymentId),
+    mutationFn: async () => {
+      throw new Error("Under-review is no longer used. Accept the payment instead.")
+    },
   })
 }
 

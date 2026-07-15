@@ -49,13 +49,16 @@ export const INVOICE_STATUSES: { value: InvoiceStatus; label: string }[] = [
 ]
 
 export const PAYMENT_STATUSES: { value: PaymentStatus; label: string }[] = [
-  { value: "pending", label: "Pending" },
-  { value: "client_marked_paid", label: "Client Marked Paid" },
-  { value: "under_review", label: "Under Review" },
+  { value: "pending", label: "Awaiting acceptance" },
+  { value: "client_marked_paid", label: "Client accepted" },
+  { value: "under_review", label: "Under review" },
   { value: "verified", label: "Verified" },
   { value: "rejected", label: "Rejected" },
   { value: "disputed", label: "Disputed" },
 ]
+
+/** Max payments loaded per list page request */
+export const PAYMENTS_PAGE_SIZE = 100
 
 export const CLIENT_STATUSES: { value: ClientStatus; label: string }[] = [
   { value: "lead", label: "Lead" },

@@ -3,17 +3,24 @@ import { notFound } from "next/navigation"
 import { PageHeader } from "@/components/shared/page-header"
 import { StatusBadge } from "@/components/shared/status-badge"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
+import { AcceptPaymentPanel } from "@/features/payments/components/accept-payment-panel"
 import { DisputePanel } from "@/features/payments/components/dispute-thread"
-import { MarkPaidForm } from "@/features/payments/components/mark-paid-form"
-import { VerifyActions } from "@/features/payments/components/verify-actions"
+import {
+  displayPaymentStatus,
+  hasClientAccepted,
+  hasStaffAccepted,
+} from "@/features/payments/lib/acceptance"
 import { requireSession } from "@/lib/auth/session"
 import {
   getPayment,
   listDisputes,
 } from "@/lib/repositories/payments.repository"
-import { canVerifyPayments, hasPermission } from "@/lib/rbac"
+import { isProjectMember } from "@/lib/repositories/projects.repository"
+import {
+  canAcceptPaymentsAsStaffRole,
+  hasPermission,
+} from "@/lib/rbac"
 import { formatCurrency, formatDate } from "@/lib/utils"
-import type { PaymentStatus } from "@/types"
 
 interface PaymentDetailPageProps {
   params: Promise<{ id: string }>
@@ -31,9 +38,19 @@ export default async function PaymentDetailPage({ params }: PaymentDetailPagePro
   const dispute = disputes.find((d) => d.payment_id === payment.id) ?? null
 
   const isClient = session.profile.role === "client"
-  const canVerify = canVerifyPayments(session.profile.role)
+  const role = session.profile.role
+  const isMember = await isProjectMember(payment.project_id, session.id)
+  const canStaffAccept =
+    !isClient &&
+    canAcceptPaymentsAsStaffRole(role) &&
+    (role === "super_admin" ||
+      role === "manager" ||
+      role === "accountant" ||
+      isMember)
   const canDispute =
     hasPermission(session.permissions, "payments.dispute") || isClient
+
+  const displayed = displayPaymentStatus(payment)
 
   return (
     <div className="flex flex-1 flex-col gap-6 p-4 sm:p-6">
@@ -48,9 +65,13 @@ export default async function PaymentDetailPage({ params }: PaymentDetailPagePro
 
       <div className="flex flex-wrap items-center gap-3">
         <h2 className="font-display font-semibold text-xl">
-          {payment.invoice?.invoice_number ?? "Payment"}
+          {payment.project?.name ?? payment.invoice?.invoice_number ?? "Payment"}
         </h2>
-        <StatusBadge type="payment" status={payment.status as PaymentStatus} />
+        <StatusBadge
+          type="payment"
+          status={displayed.status}
+          label={displayed.label}
+        />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
@@ -74,6 +95,22 @@ export default async function PaymentDetailPage({ params }: PaymentDetailPagePro
             <div className="flex justify-between sm:flex-col sm:gap-1">
               <span className="text-muted-fg">Transaction ID</span>
               <span>{payment.transaction_id ?? "—"}</span>
+            </div>
+            <div className="flex justify-between sm:flex-col sm:gap-1">
+              <span className="text-muted-fg">Client acceptance</span>
+              <span>
+                {hasClientAccepted(payment)
+                  ? formatDate(payment.client_accepted_at ?? payment.updated_at)
+                  : "Pending"}
+              </span>
+            </div>
+            <div className="flex justify-between sm:flex-col sm:gap-1">
+              <span className="text-muted-fg">Team acceptance</span>
+              <span>
+                {hasStaffAccepted(payment)
+                  ? formatDate(payment.staff_accepted_at ?? payment.updated_at)
+                  : "Pending"}
+              </span>
             </div>
             <div className="flex justify-between sm:flex-col sm:gap-1">
               <span className="text-muted-fg">Created</span>
@@ -127,8 +164,11 @@ export default async function PaymentDetailPage({ params }: PaymentDetailPagePro
             </Card>
           )}
 
-          {isClient && <MarkPaidForm payment={payment} />}
-          {canVerify && <VerifyActions payment={payment} />}
+          <AcceptPaymentPanel
+            payment={payment}
+            isClient={isClient}
+            canStaffAccept={canStaffAccept}
+          />
         </div>
       </div>
 
@@ -142,7 +182,7 @@ export default async function PaymentDetailPage({ params }: PaymentDetailPagePro
               canRaiseDispute={
                 canDispute &&
                 !dispute &&
-                ["rejected", "client_marked_paid", "under_review", "verified"].includes(
+                ["rejected", "pending", "verified", "client_marked_paid", "under_review"].includes(
                   payment.status
                 )
               }

@@ -25,9 +25,16 @@ export default async function PaymentsPage() {
         <Suspense fallback={<LoadingSkeleton variant="table" />}>
           <PaymentsTable
             initialPayments={data.payments}
+            initialTotal={data.total}
+            initialPage={data.page}
             initialProjects={data.projects}
             initialClients={data.clients}
+            initialProjectPaymentTotals={data.projectPaymentTotals}
             canManage={data.canManage}
+            canCreate={data.canCreate}
+            canEdit={data.canEdit}
+            isClient={data.isClient}
+            lockedClientId={data.lockedClientId}
           />
         </Suspense>
       )}
