@@ -8,8 +8,9 @@ import {
   projectCategorySchema,
   updateMilestoneSchema,
 } from "@/features/projects/schemas"
-import { requireSession } from "@/lib/auth/session"
+import { requirePermission, requireSession } from "@/lib/auth/session"
 import { ORG_ID } from "@/lib/data/demo-store"
+import { getClientByPortalUserId } from "@/lib/repositories/clients.repository"
 import {
   addProjectMember,
   createMilestone,
@@ -23,6 +24,7 @@ import {
   updateProject,
   updateProjectCategory,
 } from "@/lib/repositories/projects.repository"
+import { hasPermission } from "@/lib/rbac"
 
 export type ProjectActionState = {
   error?: string
@@ -71,8 +73,9 @@ export async function createProjectAction(
   _prev: ProjectActionState | null,
   formData: FormData
 ): Promise<ProjectActionState> {
-  const session = await requireSession()
+  const session = await requirePermission("projects.create")
   const orgId = session.organization?.id ?? session.profile.organization_id ?? ORG_ID
+  const isClient = session.profile.role === "client"
 
   const parsed = createProjectSchema.safeParse({
     name: formData.get("name"),
@@ -97,17 +100,32 @@ export async function createProjectAction(
   }
 
   const data = parsed.data
-  const memberIds = formData
+  let clientId = data.client_id || null
+  let memberIds = formData
     .getAll("member_ids")
     .map(String)
     .filter((id) => id.length > 0)
+
+  if (isClient) {
+    const linked = await getClientByPortalUserId(session.id)
+    if (!linked) {
+      return {
+        error:
+          "Your account is not linked to a client profile. Ask your agency to create portal access.",
+      }
+    }
+    clientId = linked.id
+    memberIds = []
+  } else if (memberIds.length > 0 && !hasPermission(session.permissions, "users.manage")) {
+    return { error: "You do not have permission to assign developers" }
+  }
 
   try {
     const project = await createProject(
       {
         organization_id: orgId,
         name: data.name,
-        client_id: data.client_id || null,
+        client_id: clientId,
         description: data.description ?? null,
         category_id: data.category_id || null,
         priority: data.priority,
@@ -152,7 +170,8 @@ export async function updateProjectAction(
   _prev: ProjectActionState | null,
   formData: FormData
 ): Promise<ProjectActionState> {
-  const session = await requireSession()
+  const session = await requirePermission("projects.update")
+  const isClient = session.profile.role === "client"
 
   const parsed = createProjectSchema.partial().safeParse({
     name: formData.get("name") || undefined,
@@ -171,14 +190,25 @@ export async function updateProjectAction(
   }
 
   const data = parsed.data
+  const clientIdUpdate =
+    isClient || data.client_id === undefined
+      ? undefined
+      : data.client_id || null
+
+  if (isClient) {
+    const linked = await getClientByPortalUserId(session.id)
+    if (!linked) {
+      return { error: "Your account is not linked to a client profile" }
+    }
+  }
 
   try {
     await updateProject(
       projectId,
       {
         ...(data.name !== undefined && { name: data.name }),
-        ...(data.client_id !== undefined && {
-          client_id: data.client_id || null,
+        ...(clientIdUpdate !== undefined && {
+          client_id: clientIdUpdate,
         }),
         ...(data.description !== undefined && {
           description: data.description ?? null,
@@ -235,7 +265,7 @@ export async function addProjectMembersAction(
   _prev: ProjectActionState | null,
   formData: FormData
 ): Promise<ProjectActionState> {
-  const session = await requireSession()
+  const session = await requirePermission("users.manage")
   const orgId = session.organization?.id ?? session.profile.organization_id ?? ORG_ID
 
   const rawIds = [
@@ -291,7 +321,7 @@ export async function removeProjectMemberAction(
   projectId: string,
   userId: string
 ): Promise<ProjectActionState> {
-  await requireSession()
+  await requirePermission("users.manage")
 
   try {
     await removeProjectMember(projectId, userId)

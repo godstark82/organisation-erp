@@ -3,6 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import {
   createClientAction,
+  createClientPortalAccessAction,
   deleteClientAction,
   updateClientAction,
 } from "@/features/clients/actions"
@@ -70,6 +71,22 @@ export function useDeleteClientMutation() {
       assertActionSuccess(await deleteClientAction(clientId)),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.clients.all })
+    },
+  })
+}
+
+export function useCreateClientPortalAccessMutation(clientId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (formData: FormData) =>
+      assertActionSuccess(
+        await createClientPortalAccessAction(clientId, null, formData)
+      ),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.clients.all })
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.clients.detail(clientId),
+      })
     },
   })
 }

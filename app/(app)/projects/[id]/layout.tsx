@@ -9,11 +9,13 @@ export default async function ProjectLayout({
   children,
   params,
 }: LayoutProps<"/projects/[id]">) {
-  await requireSession()
+  const session = await requireSession()
   const { id } = await params
   const project = await getProject(id)
 
   if (!project) notFound()
+
+  const isClientPortal = session.profile.role === "client"
 
   return (
     <div className="flex min-w-0 flex-1 flex-col">
@@ -33,7 +35,7 @@ export default async function ProjectLayout({
           <StatusBadge type="project" status={project.status as ProjectStatus} />
         </div>
         <div className="mt-4">
-          <ProjectNav projectId={id} />
+          <ProjectNav projectId={id} isClientPortal={isClientPortal} />
         </div>
       </div>
       <div className="min-w-0 flex-1 p-4 sm:p-6">{children}</div>

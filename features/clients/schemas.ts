@@ -25,3 +25,11 @@ export const clientFormDefaults: ClientFormInput = {
   notes: "",
   status: "lead",
 }
+
+export const clientPortalAccessSchema = z.object({
+  email: z.string().email("Enter a valid login email"),
+  full_name: z.string().min(2, "Name is required"),
+  password: z.string().min(8, "Password must be at least 8 characters"),
+})
+
+export type ClientPortalAccessInput = z.infer<typeof clientPortalAccessSchema>

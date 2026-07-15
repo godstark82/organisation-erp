@@ -2,6 +2,7 @@
 
 import {
   EllipsisHorizontalIcon,
+  KeyIcon,
   PencilSquareIcon,
   TrashIcon,
 } from "@heroicons/react/20/solid"
@@ -12,6 +13,7 @@ import { ConfirmDialog } from "@/components/shared/confirm-dialog"
 import { EmptyState } from "@/components/shared/empty-state"
 import { FilterBar } from "@/components/shared/filter-bar"
 import { StatusBadge } from "@/components/shared/status-badge"
+import { Badge } from "@/components/ui/badge"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import {
@@ -32,6 +34,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { ClientForm } from "@/features/clients/components/client-form"
+import { ClientPortalAccessForm } from "@/features/clients/components/client-portal-access-form"
 import {
   useClientsQuery,
   useDeleteClientMutation,
@@ -55,6 +58,7 @@ export function ClientsTable({ initialClients, canManage }: ClientsTableProps) {
   const debouncedSearch = useDebounce(search, 300)
 
   const [editClient, setEditClient] = useState<Client | null>(null)
+  const [portalClient, setPortalClient] = useState<Client | null>(null)
   const [createOpen, setCreateOpen] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<Client | null>(null)
 
@@ -177,7 +181,8 @@ export function ClientsTable({ initialClients, canManage }: ClientsTableProps) {
               <TableColumn className="hidden sm:table-cell">Contact</TableColumn>
               <TableColumn className="hidden md:table-cell">Email</TableColumn>
               <TableColumn>Status</TableColumn>
-              <TableColumn className="hidden lg:table-cell">Updated</TableColumn>
+              <TableColumn className="hidden lg:table-cell">Login</TableColumn>
+              <TableColumn className="hidden xl:table-cell">Updated</TableColumn>
               {canManage && <TableColumn className="w-12" />}
             </TableHeader>
             <TableBody items={filteredClients}>
@@ -199,7 +204,14 @@ export function ClientsTable({ initialClients, canManage }: ClientsTableProps) {
                   <TableCell>
                     <StatusBadge type="client" status={client.status as ClientStatus} />
                   </TableCell>
-                  <TableCell className="hidden text-muted-fg tabular-nums lg:table-cell">
+                  <TableCell className="hidden lg:table-cell">
+                    {client.portal_user_id ? (
+                      <Badge intent="success">Enabled</Badge>
+                    ) : (
+                      <Badge intent="secondary">Not set</Badge>
+                    )}
+                  </TableCell>
+                  <TableCell className="hidden text-muted-fg tabular-nums xl:table-cell">
                     {formatDate(client.updated_at)}
                   </TableCell>
                   {canManage && (
@@ -218,6 +230,12 @@ export function ClientsTable({ initialClients, canManage }: ClientsTableProps) {
                             <PencilSquareIcon />
                             Edit
                           </MenuItem>
+                          {!client.portal_user_id && (
+                            <MenuItem onAction={() => setPortalClient(client)}>
+                              <KeyIcon />
+                              Set portal login
+                            </MenuItem>
+                          )}
                           <MenuSeparator />
                           <MenuItem intent="danger" onAction={() => setDeleteTarget(client)}>
                             <TrashIcon />
@@ -263,6 +281,26 @@ export function ClientsTable({ initialClients, canManage }: ClientsTableProps) {
               client={editClient}
               submitLabel="Update client"
               onSuccess={() => setEditClient(null)}
+            />
+          </ModalBody>
+        </ModalContent>
+      )}
+
+      {portalClient && (
+        <ModalContent
+          isOpen={Boolean(portalClient)}
+          onOpenChange={(open) => {
+            if (!open) setPortalClient(null)
+          }}
+        >
+          <ModalHeader>
+            <ModalTitle>Set portal login — {portalClient.company_name}</ModalTitle>
+          </ModalHeader>
+          <ModalBody>
+            <ClientPortalAccessForm
+              key={portalClient.id}
+              client={portalClient}
+              onSuccess={() => setPortalClient(null)}
             />
           </ModalBody>
         </ModalContent>

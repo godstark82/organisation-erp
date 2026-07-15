@@ -54,6 +54,8 @@ export const ROLE_PERMISSIONS: Record<AppRole, string[]> = {
   client: [
     "dashboard.view",
     "projects.view",
+    "projects.create",
+    "projects.update",
     "payments.view",
     "calendar.view",
   ],

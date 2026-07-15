@@ -3,7 +3,7 @@
 import { requireSession } from "@/lib/auth/session"
 import { ORG_ID } from "@/lib/data/demo-store"
 import { listClients, getClient } from "@/lib/repositories/clients.repository"
-import type { Client, ClientStatus } from "@/types"
+import type { ClientStatus } from "@/types"
 
 export async function fetchClientsQuery(filters?: {
   search?: string
@@ -30,5 +30,3 @@ export async function fetchClientQuery(id: string) {
   if (!client) throw new Error("Client not found")
   return client
 }
-
-export type { Client }

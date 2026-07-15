@@ -165,6 +165,130 @@ export async function createDeveloper(
   return profile as Profile
 }
 
+export interface CreateClientPortalUserInput {
+  organization_id: string
+  client_id: string
+  email: string
+  full_name: string
+  phone?: string | null
+  password: string
+}
+
+/** Create an auth user with role=client and link them via clients.portal_user_id. */
+export async function createClientPortalUser(
+  input: CreateClientPortalUserInput
+): Promise<{ profile: Profile; clientId: string }> {
+  const email = input.email.trim().toLowerCase()
+  const fullName = input.full_name.trim()
+
+  if (isDemoMode()) {
+    const store = getDemoStore()
+    const client = store.clients.find((c) => c.id === input.client_id)
+    if (!client) throw new Error("Client not found")
+    if (client.portal_user_id) {
+      throw new Error("This client already has portal login access")
+    }
+    if (
+      store.profiles.some(
+        (p) =>
+          p.organization_id === input.organization_id &&
+          p.email.toLowerCase() === email
+      )
+    ) {
+      throw new Error("A user with this email already exists")
+    }
+
+    const profile: Profile = {
+      id: generateDemoId(),
+      organization_id: input.organization_id,
+      email,
+      full_name: fullName,
+      avatar_url: null,
+      phone: input.phone ?? null,
+      role: "client",
+      title: "Client portal",
+      is_active: true,
+      availability_status: "available",
+      last_seen_at: null,
+      preferences: {},
+      created_at: touch(),
+      updated_at: touch(),
+    }
+    store.profiles.push(profile)
+    client.portal_user_id = profile.id
+    client.updated_at = touch()
+    return { profile, clientId: client.id }
+  }
+
+  if (!hasAdminClient()) {
+    throw new Error(
+      "Set SUPABASE_SERVICE_ROLE_KEY in .env.local to create client portal logins."
+    )
+  }
+
+  const admin = createAdminClient()
+
+  const { data: existingClient, error: clientFetchError } = await admin
+    .from("clients")
+    .select("id, portal_user_id, organization_id")
+    .eq("id", input.client_id)
+    .maybeSingle()
+
+  if (clientFetchError) throw new Error(clientFetchError.message)
+  if (!existingClient) throw new Error("Client not found")
+  if (existingClient.portal_user_id) {
+    throw new Error("This client already has portal login access")
+  }
+
+  const { data: created, error: createError } = await admin.auth.admin.createUser({
+    email,
+    password: input.password,
+    email_confirm: true,
+    user_metadata: {
+      full_name: fullName,
+      role: "client",
+      organization_id: input.organization_id,
+    },
+  })
+
+  if (createError) throw new Error(createError.message)
+  if (!created.user) throw new Error("Failed to create portal user")
+
+  const { data: profile, error: profileError } = await admin
+    .from("profiles")
+    .update({
+      organization_id: input.organization_id,
+      full_name: fullName,
+      phone: input.phone ?? null,
+      title: "Client portal",
+      role: "client",
+      is_active: true,
+    })
+    .eq("id", created.user.id)
+    .select("*")
+    .single()
+
+  if (profileError) {
+    await admin.auth.admin.deleteUser(created.user.id).catch(() => undefined)
+    throw new Error(profileError.message)
+  }
+
+  const { error: linkError } = await admin
+    .from("clients")
+    .update({
+      portal_user_id: created.user.id,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", input.client_id)
+
+  if (linkError) {
+    await admin.auth.admin.deleteUser(created.user.id).catch(() => undefined)
+    throw new Error(linkError.message)
+  }
+
+  return { profile: profile as Profile, clientId: input.client_id }
+}
+
 export interface UpdateDeveloperInput {
   full_name?: string
   phone?: string | null

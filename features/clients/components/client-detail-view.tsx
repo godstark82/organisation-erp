@@ -1,6 +1,6 @@
 "use client"
 
-import { PencilSquareIcon, TrashIcon } from "@heroicons/react/20/solid"
+import { KeyIcon, PencilSquareIcon, TrashIcon } from "@heroicons/react/20/solid"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
@@ -8,6 +8,7 @@ import { ActivityFeed } from "@/components/shared/activity-feed"
 import { ConfirmDialog } from "@/components/shared/confirm-dialog"
 import { EmptyState } from "@/components/shared/empty-state"
 import { StatusBadge } from "@/components/shared/status-badge"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { ModalBody, ModalContent, ModalHeader, ModalTitle } from "@/components/ui/modal"
@@ -21,6 +22,7 @@ import {
 } from "@/components/ui/table"
 import { Tab, TabList, TabPanel, TabPanels, Tabs } from "@/components/ui/tabs"
 import { ClientForm } from "@/features/clients/components/client-form"
+import { ClientPortalAccessForm } from "@/features/clients/components/client-portal-access-form"
 import {
   useClientQuery,
   useDeleteClientMutation,
@@ -31,6 +33,7 @@ import type {
   Client,
   InternalNote,
   Payment,
+  Profile,
   Project,
 } from "@/types"
 
@@ -41,7 +44,9 @@ interface ClientDetailViewProps {
   activities: ActivityLog[]
   internalNotes: InternalNote[]
   canManage: boolean
+  canGrantPortalAccess: boolean
   canSeeNotes: boolean
+  portalProfile?: Profile | null
 }
 
 function DetailField({ label, value }: { label: string; value: React.ReactNode }) {
@@ -60,17 +65,21 @@ export function ClientDetailView({
   activities,
   internalNotes,
   canManage,
+  canGrantPortalAccess,
   canSeeNotes,
+  portalProfile = null,
 }: ClientDetailViewProps) {
   const router = useRouter()
   const [editOpen, setEditOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
+  const [portalOpen, setPortalOpen] = useState(false)
 
   const { data: client = initialClient } = useClientQuery(
     initialClient.id,
     initialClient
   )
   const deleteMutation = useDeleteClientMutation()
+  const hasPortalAccess = Boolean(client.portal_user_id)
 
   const handleDelete = () => {
     deleteMutation.mutate(client.id, {
@@ -82,12 +91,23 @@ export function ClientDetailView({
     <>
       <div className="flex flex-wrap items-center gap-2">
         <StatusBadge type="client" status={client.status} />
+        {hasPortalAccess ? (
+          <Badge intent="success">Portal login enabled</Badge>
+        ) : (
+          <Badge intent="secondary">No portal login</Badge>
+        )}
         {canManage && (
           <>
             <Button intent="outline" size="sm" onPress={() => setEditOpen(true)}>
               <PencilSquareIcon />
               Edit
             </Button>
+            {canGrantPortalAccess && !hasPortalAccess && (
+              <Button intent="primary" size="sm" onPress={() => setPortalOpen(true)}>
+                <KeyIcon />
+                Set portal password
+              </Button>
+            )}
             <Button intent="danger" size="sm" onPress={() => setDeleteOpen(true)}>
               <TrashIcon />
               Delete
@@ -95,6 +115,39 @@ export function ClientDetailView({
           </>
         )}
       </div>
+
+      {canGrantPortalAccess && !hasPortalAccess && (
+        <Card className="border-primary/25 bg-primary-subtle/20 shadow-sm">
+          <CardHeader
+            title="Portal login"
+            description="Create an email and password so this client can sign in, view their projects, and submit new ones."
+          />
+          <CardContent>
+            <ClientPortalAccessForm client={client} />
+          </CardContent>
+        </Card>
+      )}
+
+      {canGrantPortalAccess && hasPortalAccess && (
+        <Card className="shadow-sm">
+          <CardHeader
+            title="Portal login"
+            description="This client can sign in with the credentials below."
+          />
+          <CardContent>
+            <dl className="grid gap-4 sm:grid-cols-2">
+              <DetailField
+                label="Login email"
+                value={portalProfile?.email ?? "Linked"}
+              />
+              <DetailField
+                label="Display name"
+                value={portalProfile?.full_name ?? "—"}
+              />
+            </dl>
+          </CardContent>
+        </Card>
+      )}
 
       <Tabs defaultSelectedKey="overview">
         <TabList aria-label="Client sections">
@@ -271,6 +324,18 @@ export function ClientDetailView({
             client={client}
             submitLabel="Update client"
             onSuccess={() => setEditOpen(false)}
+          />
+        </ModalBody>
+      </ModalContent>
+
+      <ModalContent isOpen={portalOpen} onOpenChange={setPortalOpen}>
+        <ModalHeader>
+          <ModalTitle>Create portal login</ModalTitle>
+        </ModalHeader>
+        <ModalBody>
+          <ClientPortalAccessForm
+            client={client}
+            onSuccess={() => setPortalOpen(false)}
           />
         </ModalBody>
       </ModalContent>

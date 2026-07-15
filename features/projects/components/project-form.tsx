@@ -23,6 +23,9 @@ export interface ProjectFormProps {
   mode?: "create" | "edit"
   projectId?: string
   defaultMemberIds?: string[]
+  /** When set, client field is locked (portal users). */
+  lockClientId?: string | null
+  allowDeveloperAssignment?: boolean
   defaultValues?: {
     name?: string
     client_id?: string
@@ -45,6 +48,8 @@ export function ProjectForm({
   mode = "create",
   projectId,
   defaultMemberIds = [],
+  lockClientId = null,
+  allowDeveloperAssignment = true,
   defaultValues,
   onSuccess,
   stayOnCreate = false,
@@ -100,19 +105,29 @@ export function ProjectForm({
 
         <div className="space-y-1.5">
           <Label>Client</Label>
-          <NativeSelect>
-            <NativeSelectContent
-              name="client_id"
-              defaultValue={defaultValues?.client_id ?? ""}
-            >
-              <option value="">No client</option>
-              {clients.map((client) => (
-                <option key={client.id} value={client.id}>
-                  {client.company_name}
-                </option>
-              ))}
-            </NativeSelectContent>
-          </NativeSelect>
+          {lockClientId ? (
+            <>
+              <input type="hidden" name="client_id" value={lockClientId} />
+              <p className="rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm">
+                {clients.find((c) => c.id === lockClientId)?.company_name ??
+                  "Your company"}
+              </p>
+            </>
+          ) : (
+            <NativeSelect>
+              <NativeSelectContent
+                name="client_id"
+                defaultValue={defaultValues?.client_id ?? ""}
+              >
+                <option value="">No client</option>
+                {clients.map((client) => (
+                  <option key={client.id} value={client.id}>
+                    {client.company_name}
+                  </option>
+                ))}
+              </NativeSelectContent>
+            </NativeSelect>
+          )}
         </div>
 
         <TextField
@@ -204,7 +219,9 @@ export function ProjectForm({
           </TextField>
         </div>
 
-        {mode === "create" && developers.length > 0 && (
+        {mode === "create" &&
+          allowDeveloperAssignment &&
+          developers.length > 0 && (
           <div className="space-y-2">
             <Label>Assign developers</Label>
             <p className="text-muted-fg text-xs">

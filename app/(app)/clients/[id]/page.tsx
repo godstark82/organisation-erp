@@ -8,6 +8,7 @@ import { listActivityLogs } from "@/lib/repositories/activity.repository"
 import { getClient } from "@/lib/repositories/clients.repository"
 import { listInternalNotes } from "@/lib/repositories/comments.repository"
 import { listPayments } from "@/lib/repositories/payments.repository"
+import { getProfile } from "@/lib/repositories/profiles.repository"
 import { listProjects } from "@/lib/repositories/projects.repository"
 import { canSeeInternalNotes, hasPermission } from "@/lib/rbac"
 
@@ -20,6 +21,9 @@ export default async function ClientDetailPage({ params }: ClientDetailPageProps
   const { id } = await params
   const orgId = session.profile.organization_id ?? ORG_ID
   const canManage = hasPermission(session.permissions, "clients.update")
+  const canGrantPortalAccess =
+    hasPermission(session.permissions, "users.manage") ||
+    hasPermission(session.permissions, "clients.update")
   const showInternalNotes = canSeeInternalNotes(session.profile.role)
 
   const client = await getClient(id)
@@ -27,19 +31,23 @@ export default async function ClientDetailPage({ params }: ClientDetailPageProps
     notFound()
   }
 
-  const [projects, payments, activities, internalNotes] = await Promise.all([
-    listProjects({ organizationId: orgId, clientId: id }),
-    listPayments({ organizationId: orgId, clientId: id }),
-    listActivityLogs({
-      organizationId: orgId,
-      entityType: "client",
-      entityId: id,
-      limit: 20,
-    }),
-    showInternalNotes
-      ? listInternalNotes("client", id, session.profile.role)
-      : Promise.resolve([]),
-  ])
+  const [projects, payments, activities, internalNotes, portalProfile] =
+    await Promise.all([
+      listProjects({ organizationId: orgId, clientId: id }),
+      listPayments({ organizationId: orgId, clientId: id }),
+      listActivityLogs({
+        organizationId: orgId,
+        entityType: "client",
+        entityId: id,
+        limit: 20,
+      }),
+      showInternalNotes
+        ? listInternalNotes("client", id, session.profile.role)
+        : Promise.resolve([]),
+      client.portal_user_id
+        ? getProfile(client.portal_user_id)
+        : Promise.resolve(null),
+    ])
 
   return (
     <div className="flex flex-1 flex-col gap-6 p-4 sm:p-6">
@@ -64,7 +72,9 @@ export default async function ClientDetailPage({ params }: ClientDetailPageProps
         activities={activities}
         internalNotes={internalNotes}
         canManage={canManage}
+        canGrantPortalAccess={canGrantPortalAccess}
         canSeeNotes={showInternalNotes}
+        portalProfile={portalProfile}
       />
     </div>
   )

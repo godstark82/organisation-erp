@@ -6,10 +6,12 @@ import { ORG_ID } from "@/lib/data/demo-store"
 import {
   createClientRecord,
   deleteClient,
+  getClient,
   updateClient,
 } from "@/lib/repositories/clients.repository"
+import { createClientPortalUser } from "@/lib/repositories/profiles.repository"
 import { hasPermission } from "@/lib/rbac"
-import { clientFormSchema } from "./schemas"
+import { clientFormSchema, clientPortalAccessSchema } from "./schemas"
 
 export type ClientActionState = {
   error?: string
@@ -163,6 +165,60 @@ export async function deleteClientAction(clientId: string): Promise<ClientAction
   } catch (err) {
     return {
       error: err instanceof Error ? err.message : "Failed to delete client",
+    }
+  }
+}
+
+export async function createClientPortalAccessAction(
+  clientId: string,
+  _prev: ClientActionState | null,
+  formData: FormData
+): Promise<ClientActionState> {
+  const session = await requireSession()
+  const canGrant =
+    hasPermission(session.permissions, "users.manage") ||
+    hasPermission(session.permissions, "clients.update")
+  if (!canGrant) {
+    return { error: "You do not have permission to create client portal logins" }
+  }
+
+  const orgId = session.profile.organization_id ?? ORG_ID
+
+  const parsed = clientPortalAccessSchema.safeParse({
+    email: formData.get("email"),
+    full_name: formData.get("full_name"),
+    password: formData.get("password"),
+  })
+
+  if (!parsed.success) {
+    return { fieldErrors: fieldErrorsFromZod(parsed.error) }
+  }
+
+  try {
+    const client = await getClient(clientId)
+    if (!client || client.organization_id !== orgId) {
+      return { error: "Client not found" }
+    }
+    if (client.portal_user_id) {
+      return { error: "This client already has portal login access" }
+    }
+
+    await createClientPortalUser({
+      organization_id: orgId,
+      client_id: clientId,
+      email: parsed.data.email,
+      full_name: parsed.data.full_name,
+      phone: client.phone,
+      password: parsed.data.password,
+    })
+
+    revalidatePath("/clients")
+    revalidatePath(`/clients/${clientId}`)
+    return { success: "Client portal login created", id: clientId }
+  } catch (err) {
+    return {
+      error:
+        err instanceof Error ? err.message : "Failed to create portal access",
     }
   }
 }

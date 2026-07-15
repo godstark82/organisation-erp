@@ -2,6 +2,7 @@
 
 import { requireSession } from "@/lib/auth/session"
 import { ORG_ID } from "@/lib/data/demo-store"
+import { getClientByPortalUserId } from "@/lib/repositories/clients.repository"
 import { listClients } from "@/lib/repositories/clients.repository"
 import { listPayments } from "@/lib/repositories/payments.repository"
 import { listProfiles } from "@/lib/repositories/profiles.repository"
@@ -17,21 +18,40 @@ import { hasPermission } from "@/lib/rbac"
 export async function fetchProjectsPageQuery() {
   const session = await requireSession()
   const orgId = session.organization?.id ?? session.profile.organization_id ?? ORG_ID
+  const isClient = session.profile.role === "client"
   const canManage = hasPermission(session.permissions, "projects.create")
+  const canAssignDevelopers = hasPermission(session.permissions, "users.manage")
 
   let categories = await listProjectCategories(orgId)
-  if (categories.length === 0 && canManage) {
+  if (categories.length === 0 && canManage && !isClient) {
     categories = await seedDefaultProjectCategories(orgId)
   }
+
+  const linkedClient = isClient
+    ? await getClientByPortalUserId(session.id)
+    : null
 
   const [projects, clients, payments, developers] = await Promise.all([
     listProjects({ organizationId: orgId }),
     listClients({ organizationId: orgId }),
     listPayments({ organizationId: orgId }),
-    listProfiles({ organizationId: orgId, excludeRoles: ["client"] }),
+    canAssignDevelopers
+      ? listProfiles({ organizationId: orgId, excludeRoles: ["client"] })
+      : Promise.resolve([]),
   ])
 
-  return { projects, clients, payments, developers, categories, canManage, orgId }
+  return {
+    projects,
+    clients,
+    payments,
+    developers,
+    categories,
+    canManage,
+    canAssignDevelopers,
+    orgId,
+    isClient,
+    lockedClientId: linkedClient?.id ?? null,
+  }
 }
 
 export async function fetchProjectQuery(id: string) {

@@ -102,6 +102,27 @@ export async function getClient(id: string): Promise<Client | null> {
   return data as Client
 }
 
+export async function getClientByPortalUserId(
+  portalUserId: string
+): Promise<Client | null> {
+  if (isDemoMode()) {
+    return (
+      getDemoStore().clients.find((c) => c.portal_user_id === portalUserId) ??
+      null
+    )
+  }
+
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from("clients")
+    .select("*")
+    .eq("portal_user_id", portalUserId)
+    .maybeSingle()
+
+  if (error) throw error
+  return data as Client | null
+}
+
 export async function createClientRecord(
   input: Omit<Client, "id" | "created_at" | "updated_at">,
   actorId?: string | null

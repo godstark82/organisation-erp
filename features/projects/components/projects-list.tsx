@@ -32,17 +32,10 @@ import {
 import { ProjectForm } from "@/features/projects/components/project-form"
 import { useProjectsPageQuery } from "@/features/projects/hooks"
 import { formatCurrency, formatDate } from "@/lib/utils"
+import type { fetchProjectsPageQuery } from "@/features/projects/queries"
 
 export interface ProjectsListProps {
-  initialData: {
-    projects: Project[]
-    clients: Client[]
-    categories: ProjectCategory[]
-    payments: Payment[]
-    developers: Profile[]
-    canManage: boolean
-    orgId: string
-  }
+  initialData: Awaited<ReturnType<typeof fetchProjectsPageQuery>>
 }
 
 function projectPaymentSummary(project: Project, payments: Payment[]) {
@@ -67,6 +60,9 @@ export function ProjectsList({ initialData }: ProjectsListProps) {
     payments,
     developers = [],
     canManage = false,
+    canAssignDevelopers = false,
+    isClient = false,
+    lockedClientId = null,
   } = data
 
   const router = useRouter()
@@ -221,39 +217,43 @@ export function ProjectsList({ initialData }: ProjectsListProps) {
               </NativeSelectContent>
             </NativeSelect>
 
-            <NativeSelect className="w-full sm:w-44">
-              <NativeSelectContent
-                value={clientFilter}
-                onChange={(event) =>
-                  updateParams({ client: event.target.value })
-                }
-                aria-label="Filter by client"
-              >
-                <option value="">All clients</option>
-                {clients.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.company_name}
-                  </option>
-                ))}
-              </NativeSelectContent>
-            </NativeSelect>
+            {!isClient && (
+              <NativeSelect className="w-full sm:w-44">
+                <NativeSelectContent
+                  value={clientFilter}
+                  onChange={(event) =>
+                    updateParams({ client: event.target.value })
+                  }
+                  aria-label="Filter by client"
+                >
+                  <option value="">All clients</option>
+                  {clients.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.company_name}
+                    </option>
+                  ))}
+                </NativeSelectContent>
+              </NativeSelect>
+            )}
 
-            <NativeSelect className="w-full sm:w-44">
-              <NativeSelectContent
-                value={developerFilter}
-                onChange={(event) =>
-                  updateParams({ developer: event.target.value })
-                }
-                aria-label="Filter by developer"
-              >
-                <option value="">All developers</option>
-                {developers.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.full_name}
-                  </option>
-                ))}
-              </NativeSelectContent>
-            </NativeSelect>
+            {canAssignDevelopers && (
+              <NativeSelect className="w-full sm:w-44">
+                <NativeSelectContent
+                  value={developerFilter}
+                  onChange={(event) =>
+                    updateParams({ developer: event.target.value })
+                  }
+                  aria-label="Filter by developer"
+                >
+                  <option value="">All developers</option>
+                  {developers.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.full_name}
+                    </option>
+                  ))}
+                </NativeSelectContent>
+              </NativeSelect>
+            )}
           </>
         }
       />
@@ -407,6 +407,8 @@ export function ProjectsList({ initialData }: ProjectsListProps) {
             categories={categories}
             developers={developers}
             mode="create"
+            lockClientId={lockedClientId}
+            allowDeveloperAssignment={canAssignDevelopers}
           />
         </ModalBody>
       </ModalContent>
@@ -429,6 +431,8 @@ export function ProjectsList({ initialData }: ProjectsListProps) {
               developers={developers}
               mode="edit"
               projectId={editProject.id}
+              lockClientId={lockedClientId}
+              allowDeveloperAssignment={false}
               defaultValues={{
                 name: editProject.name,
                 client_id: editProject.client_id ?? "",
