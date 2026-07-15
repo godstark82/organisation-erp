@@ -41,6 +41,8 @@
     --color-muted-fg: var(--muted-fg);
     --color-overlay: var(--overlay);
     --color-overlay-fg: var(--overlay-fg);
+    --color-card: var(--overlay);
+    --color-card-fg: var(--overlay-fg);
     --color-navbar: var(--navbar);
     --color-navbar-fg: var(--navbar-fg);
     --color-sidebar: var(--sidebar);
@@ -63,7 +65,6 @@
     --radius-2xl: calc(var(--radius) * 1.8);
     --radius-3xl: calc(var(--radius) * 2.2);
     --radius-4xl: calc(var(--radius) * 2.6);
-    --radius: var(----radius);
 }
 
 :root {

@@ -47,7 +47,7 @@ function ThemeHotkey() {
         return
       }
 
-      if (event.key.toLowerCase() !== "d") {
+      if (event.key?.toLowerCase() !== "d") {
         return
       }
 
@@ -68,4 +68,4 @@ function ThemeHotkey() {
   return null
 }
 
-export { ThemeProvider }
+export { ThemeProvider, useTheme }

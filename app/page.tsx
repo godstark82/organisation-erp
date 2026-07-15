@@ -1,19 +1,18 @@
-import { Button } from "@/components/ui/button"
+import { redirect } from "next/navigation"
 
-export default function Page() {
-  return (
-    <div className="flex min-h-svh p-6">
-      <div className="flex max-w-md min-w-0 flex-col gap-4 text-sm leading-loose">
-        <div>
-          <h1 className="font-medium">Project ready!</h1>
-          <p>You may now add components and start building.</p>
-          <p>We&apos;ve already added the button component for you.</p>
-          <Button className="mt-2">Button</Button>
-        </div>
-        <div className="font-mono text-xs text-muted-foreground">
-          (Press <kbd>d</kbd> to toggle dark mode)
-        </div>
-      </div>
-    </div>
-  )
+export default async function Page({
+  searchParams,
+}: {
+  searchParams: Promise<{ code?: string; next?: string }>
+}) {
+  const params = await searchParams
+
+  // Supabase email confirm / OAuth often lands on Site URL with ?code=
+  if (params.code) {
+    const qs = new URLSearchParams({ code: params.code })
+    if (params.next) qs.set("next", params.next)
+    redirect(`/auth/callback?${qs.toString()}`)
+  }
+
+  redirect("/dashboard")
 }

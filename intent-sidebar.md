@@ -1,0 +1,1739 @@
+---
+title: "Sidebar"
+description: A collapsible side panel for navigation or extra content, with multiple intents, behaviors, and customization options to match your layout on any screen size
+order: 1
+published: true
+references: ["https://react-aria.adobe.com/Link#api"]
+---
+
+## Sandbox: sidebar-01
+
+
+**registry/blocks/sidebar-01/page.tsx**
+
+```tsx
+import { Heading } from '@/components/ui/heading'
+import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
+import AppSidebar from '@/registry/blocks/sidebar-01/app-sidebar'
+import AppSidebarNav from '@/registry/blocks/sidebar-01/app-sidebar-nav'
+
+export function Page() {
+  return (
+    <SidebarProvider>
+      <AppSidebar collapsible="dock" />
+      <SidebarInset>
+        <AppSidebarNav />
+        <div className="p-4 lg:p-6">
+          <Heading>Basic</Heading>
+        </div>
+      </SidebarInset>
+    </SidebarProvider>
+  )
+}
+
+```
+
+
+
+**registry/blocks/sidebar-01/app-sidebar-nav.tsx**
+
+```tsx
+'use client'
+
+import {
+  ArrowRightOnRectangleIcon,
+  Cog6ToothIcon,
+  CommandLineIcon,
+  Squares2X2Icon,
+} from '@heroicons/react/24/outline'
+import { Avatar } from '@/components/ui/avatar'
+import { Breadcrumbs, BreadcrumbsItem } from '@/components/ui/breadcrumbs'
+import {
+  Menu,
+  MenuContent,
+  MenuHeader,
+  MenuItem,
+  MenuLabel,
+  MenuSection,
+  MenuSeparator,
+  MenuTrigger,
+} from '@/components/ui/menu'
+import { SidebarNav, SidebarTrigger } from '@/components/ui/sidebar'
+
+export function AppSidebarNav() {
+  return (
+    <SidebarNav>
+      <span className="flex items-center gap-x-4">
+        <SidebarTrigger className="-ml-2.5 lg:ml-0" />
+        <Breadcrumbs className="hidden md:flex">
+          <BreadcrumbsItem href="/pre-blocks/sidebar/sidebar-01">Dashboard</BreadcrumbsItem>
+          <BreadcrumbsItem>Newsletter</BreadcrumbsItem>
+        </Breadcrumbs>
+      </span>
+      <UserMenu />
+    </SidebarNav>
+  )
+}
+
+function UserMenu() {
+  return (
+    <Menu>
+      <MenuTrigger className="ml-auto md:hidden" aria-label="Open Menu">
+        <Avatar isSquare alt="kurt cobain" src="https://intentui.com/images/avatar/cobain.jpg" />
+      </MenuTrigger>
+      <MenuContent popover={{ placement: 'bottom end' }} className="min-w-64">
+        <MenuSection>
+          <MenuHeader separator>
+            <span className="block">Kurt Cobain</span>
+            <span className="font-normal text-muted-fg">@cobain</span>
+          </MenuHeader>
+        </MenuSection>
+        <MenuItem href="#dashboard">
+          <Squares2X2Icon />
+          <MenuLabel>Dashboard</MenuLabel>
+        </MenuItem>
+        <MenuItem href="#settings">
+          <Cog6ToothIcon />
+          <MenuLabel>Settings</MenuLabel>
+        </MenuItem>
+        <MenuSeparator />
+        <MenuItem>
+          <CommandLineIcon />
+          <MenuLabel>Command Menu</MenuLabel>
+        </MenuItem>
+        <MenuSeparator />
+        <MenuItem href="#contact-s">
+          <MenuLabel>Contact Support</MenuLabel>
+        </MenuItem>
+        <MenuSeparator />
+        <MenuItem href="#logout">
+          <ArrowRightOnRectangleIcon />
+          <MenuLabel>Log out</MenuLabel>
+        </MenuItem>
+      </MenuContent>
+    </Menu>
+  )
+}
+
+```
+
+
+
+**registry/blocks/sidebar-01/app-sidebar.tsx**
+
+```tsx
+'use client'
+
+import { EllipsisHorizontalIcon } from '@heroicons/react/16/solid'
+import { ChevronUpDownIcon, PlusIcon } from '@heroicons/react/20/solid'
+import {
+  ArchiveBoxIcon,
+  ArrowDownTrayIcon,
+  ArrowRightStartOnRectangleIcon,
+  ArrowUpTrayIcon,
+  BuildingOfficeIcon,
+  ChatBubbleLeftRightIcon,
+  CheckCircleIcon,
+  ClockIcon,
+  Cog6ToothIcon,
+  CreditCardIcon,
+  CubeIcon,
+  DocumentTextIcon,
+  HashtagIcon,
+  HomeIcon,
+  LifebuoyIcon,
+  ListBulletIcon,
+  QuestionMarkCircleIcon,
+  ShieldCheckIcon,
+  ShoppingBagIcon,
+  TicketIcon,
+} from '@heroicons/react/24/outline'
+import { Avatar } from '@/components/ui/avatar'
+import { Link } from '@/components/ui/link'
+import {
+  Menu,
+  MenuContent,
+  MenuHeader,
+  MenuItem,
+  MenuSection,
+  MenuSeparator,
+  MenuTrigger,
+} from '@/components/ui/menu'
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarDisclosure,
+  SidebarDisclosureGroup,
+  SidebarDisclosurePanel,
+  SidebarDisclosureTrigger,
+  SidebarFooter,
+  SidebarHeader,
+  SidebarItem,
+  SidebarLabel,
+  SidebarLink,
+  SidebarMenuTrigger,
+  SidebarRail,
+  SidebarSection,
+  SidebarSectionGroup,
+} from '@/components/ui/sidebar'
+
+export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
+  return (
+    <Sidebar {...props}>
+      <SidebarHeader>
+        <Link href="/docs/components/layouts/sidebar" className="flex items-center gap-x-2">
+          <Avatar
+            isSquare
+            size="sm"
+            className="outline-hidden"
+            src="https://design.intentui.com/logo"
+          />
+          <SidebarLabel className="font-medium">
+            Intent <span className="text-muted-fg">UI</span>
+          </SidebarLabel>
+        </Link>
+      </SidebarHeader>
+      <SidebarContent>
+        <SidebarSectionGroup>
+          <SidebarSection label="Overview">
+            <SidebarItem tooltip="Overview" isCurrent href="#">
+              <HomeIcon />
+              <SidebarLabel>Overview</SidebarLabel>
+            </SidebarItem>
+
+            <SidebarItem tooltip="Orders">
+              {({ isCollapsed, isFocused }) => (
+                <>
+                  <SidebarLink href="#">
+                    <ShoppingBagIcon />
+                    <SidebarLabel>Orders</SidebarLabel>
+                  </SidebarLink>
+                  {(!isCollapsed || isFocused) && (
+                    <Menu>
+                      <SidebarMenuTrigger aria-label="Manage">
+                        <EllipsisHorizontalIcon />
+                      </SidebarMenuTrigger>
+                      <MenuContent
+                        popover={{
+                          offset: 0,
+                          placement: 'right top',
+                        }}
+                      >
+                        <MenuItem href="#new-order">
+                          <PlusIcon />
+                          Create New Order
+                        </MenuItem>
+                        <MenuItem href="#view-all">
+                          <ListBulletIcon />
+                          View All Orders
+                        </MenuItem>
+                        <MenuItem href="#pending-orders">
+                          <ClockIcon />
+                          Pending Orders
+                        </MenuItem>
+                        <MenuItem href="#completed-orders">
+                          <CheckCircleIcon />
+                          Completed Orders
+                        </MenuItem>
+                        <MenuItem href="#export-orders">
+                          <ArrowUpTrayIcon />
+                          Export Orders
+                        </MenuItem>
+                      </MenuContent>
+                    </Menu>
+                  )}
+                </>
+              )}
+            </SidebarItem>
+
+            <SidebarItem tooltip="Products">
+              {({ isCollapsed, isFocused }) => (
+                <>
+                  <SidebarLink href="#">
+                    <CubeIcon />
+                    <SidebarLabel>Products</SidebarLabel>
+                  </SidebarLink>
+                  {(!isCollapsed || isFocused) && (
+                    <Menu>
+                      <SidebarMenuTrigger aria-label="Manage">
+                        <EllipsisHorizontalIcon />
+                      </SidebarMenuTrigger>
+                      <MenuContent
+                        popover={{
+                          offset: 0,
+                          placement: 'right top',
+                        }}
+                      >
+                        <MenuItem href="#new-product">
+                          <PlusIcon />
+                          Add New Product
+                        </MenuItem>
+                        <MenuItem href="#archive">
+                          <ArchiveBoxIcon />
+                          Archive Product
+                        </MenuItem>
+                        <MenuItem href="#manage-categories">
+                          <HashtagIcon />
+                          Manage Categories
+                        </MenuItem>
+                        <MenuItem href="#import">
+                          <ArrowDownTrayIcon />
+                          Import Products
+                        </MenuItem>
+                        <MenuItem href="#export">
+                          <ArrowUpTrayIcon />
+                          Export Products
+                        </MenuItem>
+                      </MenuContent>
+                    </Menu>
+                  )}
+                </>
+              )}
+            </SidebarItem>
+
+            <SidebarItem href="#" badge="4 Pending" tooltip="Payments">
+              <CreditCardIcon />
+              <SidebarLabel>Payments</SidebarLabel>
+            </SidebarItem>
+          </SidebarSection>
+
+          <SidebarDisclosureGroup defaultExpandedKeys={[1]}>
+            <SidebarDisclosure id={1}>
+              <SidebarDisclosureTrigger>
+                <EllipsisHorizontalIcon />
+                <SidebarLabel>Support</SidebarLabel>
+              </SidebarDisclosureTrigger>
+              <SidebarDisclosurePanel>
+                <SidebarItem href="#" tooltip="Tickets">
+                  <TicketIcon />
+                  <SidebarLabel>Tickets</SidebarLabel>
+                </SidebarItem>
+                <SidebarItem href="#" tooltip="Chat Support">
+                  <ChatBubbleLeftRightIcon />
+                  <SidebarLabel>Chat Support</SidebarLabel>
+                </SidebarItem>
+                <SidebarItem href="#" tooltip="FAQ">
+                  <QuestionMarkCircleIcon />
+                  <SidebarLabel>FAQ</SidebarLabel>
+                </SidebarItem>
+                <SidebarItem href="#" tooltip="Documentation">
+                  <DocumentTextIcon />
+                  <SidebarLabel>Documentation</SidebarLabel>
+                </SidebarItem>
+              </SidebarDisclosurePanel>
+            </SidebarDisclosure>
+            <SidebarDisclosure id={2}>
+              <SidebarDisclosureTrigger>
+                <ArchiveBoxIcon />
+                <SidebarLabel>Inventory</SidebarLabel>
+              </SidebarDisclosureTrigger>
+              <SidebarDisclosurePanel>
+                <SidebarItem href="#" tooltip="Warehouse">
+                  <BuildingOfficeIcon />
+                  <SidebarLabel>Warehouse</SidebarLabel>
+                </SidebarItem>
+                <SidebarItem href="#" tooltip="Stock Levels">
+                  <SidebarLabel>Stock Levels</SidebarLabel>
+                </SidebarItem>
+                <SidebarItem href="#" tooltip="Shipping">
+                  <SidebarLabel>Shipping</SidebarLabel>
+                </SidebarItem>
+              </SidebarDisclosurePanel>
+            </SidebarDisclosure>
+          </SidebarDisclosureGroup>
+        </SidebarSectionGroup>
+      </SidebarContent>
+
+      <SidebarFooter className="flex flex-row justify-between gap-4 group-data-[state=collapsed]:flex-col">
+        <Menu>
+          <MenuTrigger className="flex w-full items-center justify-between" aria-label="Profile">
+            <div className="flex items-center gap-x-2">
+              <Avatar
+                className="size-8 *:size-8 group-data-[state=collapsed]:size-6 group-data-[state=collapsed]:*:size-6"
+                isSquare
+                src="https://intentui.com/images/avatar/cobain.jpg"
+              />
+              <div className="in-data-[collapsible=dock]:hidden text-sm">
+                <SidebarLabel>Kurt Cobain</SidebarLabel>
+                <span className="-mt-0.5 block text-muted-fg">@kurtcobain</span>
+              </div>
+            </div>
+            <ChevronUpDownIcon data-slot="chevron" />
+          </MenuTrigger>
+          <MenuContent
+            className="in-data-[sidebar-collapsible=collapsed]:min-w-56 min-w-(--trigger-width)"
+            placement="bottom right"
+          >
+            <MenuSection>
+              <MenuHeader separator>
+                <span className="block">Kurt Cobain</span>
+                <span className="font-normal text-muted-fg">@cobain</span>
+              </MenuHeader>
+            </MenuSection>
+
+            <MenuItem href="#dashboard">
+              <HomeIcon />
+              Dashboard
+            </MenuItem>
+            <MenuItem href="#settings">
+              <Cog6ToothIcon />
+              Settings
+            </MenuItem>
+            <MenuItem href="#security">
+              <ShieldCheckIcon />
+              Security
+            </MenuItem>
+            <MenuSeparator />
+            <MenuItem href="#contact">
+              <LifebuoyIcon />
+              Customer Support
+            </MenuItem>
+            <MenuSeparator />
+            <MenuItem href="#logout">
+              <ArrowRightStartOnRectangleIcon />
+              Log out
+            </MenuItem>
+          </MenuContent>
+        </Menu>
+      </SidebarFooter>
+      <SidebarRail />
+    </Sidebar>
+  )
+}
+
+```
+
+## Installation
+
+Install the component via the CLI in one command.
+
+```bash
+npx shadcn@latest add @intentui/sidebar
+```
+
+
+## Composed components
+- [tooltip](https://intentui.com/docs/components/overlays/tooltip.md)
+- [sheet](https://intentui.com/docs/components/overlays/sheet.md)
+- [link](https://intentui.com/docs/components/navigation/link.md)
+- [button](https://intentui.com/docs/components/buttons/button.md)
+
+## Manual installation
+Use this approach if you prefer to install and wire up the component yourself instead of using the CLI.
+
+```bash
+npm i react-aria-components @heroicons/react tailwind-merge
+```
+
+<SourceCode toShow={'sidebar'}/>
+
+## CSS variables
+The sidebar just needs one base color to work; the accent is generated from the base, and the primary color is taken from the primary color you already have. Make sure you have set everything up, or head to the [theme page](/themes) to see the colors you can use. Too lazy? Just copy the default color below to your stylesheet.
+```
+@theme inline {
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-fg: var(--sidebar-fg);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-fg: var(--sidebar-primary-fg);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-fg: var(--sidebar-accent-fg);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+:root {
+  --sidebar: oklch(0.985 0 0);
+  --sidebar-fg: oklch(0.141 0.005 285.823);
+  --sidebar-primary: oklch(0.623 0.214 259.815 / 0.15);
+  --sidebar-primary-fg: oklch(0.488 0.243 264.376);
+  --sidebar-accent: oklch(0.92 0.004 286.32);
+  --sidebar-accent-fg: oklch(0.141 0.005 285.823);
+  --sidebar-border: oklch(0.901 0.006 286.286);
+  --sidebar-ring: oklch(0.546 0.245 262.881);
+}
+
+.dark {
+  --sidebar: oklch(0.21 0.006 285.885);
+  --sidebar-fg: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.623 0.214 259.815 / 0.1);
+  --sidebar-primary-fg: oklch(0.707 0.165 254.624);
+  --sidebar-accent: oklch(0.274 0.006 286.033);
+  --sidebar-accent-fg: oklch(0.985 0 0);
+  --sidebar-border: oklch(0.274 0.006 286.033);
+  --sidebar-ring: oklch(0.546 0.245 262.881);
+}
+```
+
+Not sure if it's your style, but it's a great starting point. If you’d like to tweak the colors, check out the [theme customization](/themes) page for more options.
+
+## Examples
+
+### Intent
+The sidebar comes in three variations: `sidebar`, `float`, and `inset`. By default, the variation is set to `"sidebar"`.
+
+#### Default
+The default variation is a traditional sidebar often used for navigation. <NewTab href='/pre-blocks/sidebar/sidebar-02'/>.
+```tsx
+{/* [!code word:default:1] */}
+<Sidebar intent="default" />
+```
+
+#### Inset
+The inset variation adds padding to the main content for a visually distinct layout. Explore the demo to see it in action, or switch to full-screen mode for a better view. <NewTab href='/pre-blocks/sidebar/sidebar-03'/>.
+```
+{/* [!code word:inset:1] */}
+<Sidebar intent="inset" />
+```
+
+#### Float
+The `float` variation introduces an inner border within the sidebar, while the wrapper includes padding around the content. <NewTab href='/pre-blocks/sidebar/sidebar-04'/>
+```
+{/* [!code word:float:1] */}
+<Sidebar intent="float" />
+```
+
+### Collapsible
+The sidebar can be made collapsible by using the `collapsible` prop in the `SidebarProvider`. The default collapsible behavior is `hidden`.
+
+#### Hidden
+When toggled, the sidebar hides completely from view. <NewTab href='/pre-blocks/sidebar/sidebar-05'/>
+```
+{/* [!code word:hidden:1] */}
+<Sidebar collapsible="hidden" />
+```
+
+#### Dock
+When toggled, the sidebar docks to a minimal state, showing only icons. Hovering over an icon reveals a tooltip with additional information. <NewTab href='/pre-blocks/sidebar/sidebar-06'/>
+```
+{/* [!code word:dock:1] */}
+<Sidebar intent="dock" />
+```
+
+### Default open
+The sidebar’s initial state can be controlled using the `defaultOpen` prop. For example, you can set `defaultOpen` to `false` and keep the sidebar docked.
+```
+<SidebarProvider defaultOpen={false}>
+  <Sidebar collapsible="dock" />
+```
+
+### Sidebar section
+The sidebar section is a container for sidebar items. It accepts a `label` prop, which will be displayed as a heading.
+```
+<SidebarSection>
+  <SidebarItem isCurrent href="#">
+    <SidebarLabel>Item 1</SidebarLabel>
+  </SidebarItem>
+</SidebarSection>
+<SidebarSection label="Other Section">
+  <SidebarItem isCurrent href="#">
+    <SidebarLabel>Item 1</SidebarLabel>
+  </SidebarItem>
+</SidebarSection>
+```
+
+### Sidebar disclosure group
+If you need to collapse multiple items, you can use the `SidebarDisclosureGroup` component. <NewTab href='/pre-blocks/sidebar/sidebar-15'/>
+```
+<SidebarDisclosureGroup defaultExpandedKeys={[1]}>
+  <SidebarDisclosure id={1}>
+    <SidebarDisclosureTrigger>
+      <EllipsisHorizontalIcon />
+      <SidebarLabel>Support</SidebarLabel>
+    </SidebarDisclosureTrigger>
+    <SidebarDisclosurePanel>
+      <SidebarItem href="#" tooltip="Tickets">
+        <TicketIcon />
+        <SidebarLabel>Tickets</SidebarLabel>
+      </SidebarItem>
+      <SidebarItem href="#" tooltip="Chat Support">
+        <ChatBubbleLeftRightIcon />
+        <SidebarLabel>Chat Support</SidebarLabel>
+      </SidebarItem>
+      <SidebarItem href="#" tooltip="FAQ">
+        <QuestionMarkCircleIcon />
+        <SidebarLabel>FAQ</SidebarLabel>
+      </SidebarItem>
+      <SidebarItem href="#" tooltip="Documentation">
+        <DocumentTextIcon />
+        <SidebarLabel>Documentation</SidebarLabel>
+      </SidebarItem>
+    </SidebarDisclosurePanel>
+  </SidebarDisclosure>
+  <SidebarDisclosure id={2}>
+    <SidebarDisclosureTrigger>
+      <ArchiveBoxIcon />
+      <SidebarLabel>Inventory</SidebarLabel>
+    </SidebarDisclosureTrigger>
+    <SidebarDisclosurePanel>
+      <SidebarItem href="#" tooltip="Warehouse">
+        <BuildingOfficeIcon />
+        <SidebarLabel>Warehouse</SidebarLabel>
+      </SidebarItem>
+      <SidebarItem href="#" tooltip="Stock Levels">
+        <SidebarLabel>Stock Levels</SidebarLabel>
+      </SidebarItem>
+      <SidebarItem href="#" tooltip="Shipping">
+        <SidebarLabel>Shipping</SidebarLabel>
+      </SidebarItem>
+    </SidebarDisclosurePanel>
+  </SidebarDisclosure>
+</SidebarDisclosureGroup>
+```
+
+
+
+### Menu actions
+The sidebar supports menus for displaying additional actions or options.
+```
+<SidebarItem tooltip="Orders">
+  {({ isCollapsed, isFocused }) => (
+    <>
+      <SidebarLink href="#">
+        <SidebarLabel>Orders</SidebarLabel>
+      </SidebarLink>
+      {(!isCollapsed || isFocused) && (
+        <Menu>
+          <SidebarMenuTrigger aria-label="Manage">
+            <EllipsisHorizontalIcon />
+          </MenuTrigger>
+          <MenuContent popover={{ offset: 0, placement: "right top" }}>
+            <MenuItem href="#new-order">
+              <PlusIcon />
+              Create New Order
+            </MenuItem>
+            <MenuItem href="#view-all">
+              View All Orders
+            </MenuItem>
+            <MenuItem href="#pending-orders">
+              Pending Orders
+            </MenuItem>
+            <MenuItem href="#completed-orders">
+              Completed Orders
+            </MenuItem>
+            <MenuItem href="#export-orders">
+              Export Orders
+            </MenuItem>
+          </MenuContent>
+        </Menu>
+      )}
+    </>
+  )}
+</SidebarItem>
+```
+## Sandbox: sidebar-08
+
+
+**registry/blocks/sidebar-08/page.tsx**
+
+```tsx
+export function Page() {
+  return <div>Overview</div>
+}
+
+```
+
+
+
+**registry/blocks/sidebar-08/app-sidebar-nav.tsx**
+
+```tsx
+'use client'
+
+import {
+  ArrowRightOnRectangleIcon,
+  Cog6ToothIcon,
+  CommandLineIcon,
+  Squares2X2Icon,
+} from '@heroicons/react/24/outline'
+import { Avatar } from '@/components/ui/avatar'
+import { Breadcrumbs, BreadcrumbsItem } from '@/components/ui/breadcrumbs'
+import {
+  Menu,
+  MenuContent,
+  MenuHeader,
+  MenuItem,
+  MenuLabel,
+  MenuSection,
+  MenuSeparator,
+  MenuTrigger,
+} from '@/components/ui/menu'
+import { SidebarNav, SidebarTrigger } from '@/components/ui/sidebar'
+
+export function AppSidebarNav() {
+  return (
+    <SidebarNav>
+      <span className="flex items-center gap-x-4">
+        <SidebarTrigger className="-ml-2.5 lg:ml-0" />
+        <Breadcrumbs className="hidden md:flex">
+          <BreadcrumbsItem href="/pre-blocks/sidebar/sidebar-01">Dashboard</BreadcrumbsItem>
+          <BreadcrumbsItem>Newsletter</BreadcrumbsItem>
+        </Breadcrumbs>
+      </span>
+      <UserMenu />
+    </SidebarNav>
+  )
+}
+
+function UserMenu() {
+  return (
+    <Menu>
+      <MenuTrigger className="ml-auto md:hidden" aria-label="Open Menu">
+        <Avatar isSquare alt="kurt cobain" src="https://intentui.com/images/avatar/cobain.jpg" />
+      </MenuTrigger>
+      <MenuContent popover={{ placement: 'bottom end' }} className="min-w-64">
+        <MenuSection>
+          <MenuHeader separator>
+            <span className="block">Kurt Cobain</span>
+            <span className="font-normal text-muted-fg">@cobain</span>
+          </MenuHeader>
+        </MenuSection>
+        <MenuItem href="#dashboard">
+          <Squares2X2Icon />
+          <MenuLabel>Dashboard</MenuLabel>
+        </MenuItem>
+        <MenuItem href="#settings">
+          <Cog6ToothIcon />
+          <MenuLabel>Settings</MenuLabel>
+        </MenuItem>
+        <MenuSeparator />
+        <MenuItem>
+          <CommandLineIcon />
+          <MenuLabel>Command Menu</MenuLabel>
+        </MenuItem>
+        <MenuSeparator />
+        <MenuItem href="#contact-s">
+          <MenuLabel>Contact Support</MenuLabel>
+        </MenuItem>
+        <MenuSeparator />
+        <MenuItem href="#logout">
+          <ArrowRightOnRectangleIcon />
+          <MenuLabel>Log out</MenuLabel>
+        </MenuItem>
+      </MenuContent>
+    </Menu>
+  )
+}
+
+```
+
+
+
+**registry/blocks/sidebar-08/app-sidebar.tsx**
+
+```tsx
+'use client'
+
+import { EllipsisHorizontalIcon } from '@heroicons/react/16/solid'
+import { ChevronUpDownIcon, PlusIcon } from '@heroicons/react/20/solid'
+import {
+  ArchiveBoxIcon,
+  ArrowDownTrayIcon,
+  ArrowRightStartOnRectangleIcon,
+  ArrowUpTrayIcon,
+  BuildingOfficeIcon,
+  ChatBubbleLeftRightIcon,
+  CheckCircleIcon,
+  ClockIcon,
+  Cog6ToothIcon,
+  CreditCardIcon,
+  CubeIcon,
+  DocumentTextIcon,
+  HashtagIcon,
+  HomeIcon,
+  LifebuoyIcon,
+  ListBulletIcon,
+  QuestionMarkCircleIcon,
+  ShieldCheckIcon,
+  ShoppingBagIcon,
+  TicketIcon,
+} from '@heroicons/react/24/outline'
+import { Avatar } from '@/components/ui/avatar'
+import { Link } from '@/components/ui/link'
+import {
+  Menu,
+  MenuContent,
+  MenuHeader,
+  MenuItem,
+  MenuSection,
+  MenuSeparator,
+  MenuTrigger,
+} from '@/components/ui/menu'
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarDisclosure,
+  SidebarDisclosureGroup,
+  SidebarDisclosurePanel,
+  SidebarDisclosureTrigger,
+  SidebarFooter,
+  SidebarHeader,
+  SidebarItem,
+  SidebarLabel,
+  SidebarLink,
+  SidebarMenuTrigger,
+  SidebarRail,
+  SidebarSection,
+  SidebarSectionGroup,
+} from '@/components/ui/sidebar'
+
+export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
+  return (
+    <Sidebar {...props}>
+      <SidebarHeader>
+        <Link href="/docs/components/layouts/sidebar" className="flex items-center gap-x-2">
+          <Avatar
+            isSquare
+            size="sm"
+            className="outline-hidden"
+            src="https://design.intentui.com/logo"
+          />
+          <SidebarLabel className="font-medium">
+            Intent <span className="text-muted-fg">UI</span>
+          </SidebarLabel>
+        </Link>
+      </SidebarHeader>
+      <SidebarContent>
+        <SidebarSectionGroup>
+          <SidebarSection label="Overview">
+            <SidebarItem tooltip="Overview" isCurrent href="#">
+              <HomeIcon />
+              <SidebarLabel>Overview</SidebarLabel>
+            </SidebarItem>
+
+            <SidebarItem tooltip="Orders">
+              {({ isCollapsed, isFocused }) => (
+                <>
+                  <SidebarLink href="#">
+                    <ShoppingBagIcon />
+                    <SidebarLabel>Orders</SidebarLabel>
+                  </SidebarLink>
+                  {(!isCollapsed || isFocused) && (
+                    <Menu>
+                      <SidebarMenuTrigger aria-label="Manage">
+                        <EllipsisHorizontalIcon />
+                      </SidebarMenuTrigger>
+                      <MenuContent
+                        popover={{
+                          offset: 0,
+                          placement: 'right top',
+                        }}
+                      >
+                        <MenuItem href="#new-order">
+                          <PlusIcon />
+                          Create New Order
+                        </MenuItem>
+                        <MenuItem href="#view-all">
+                          <ListBulletIcon />
+                          View All Orders
+                        </MenuItem>
+                        <MenuItem href="#pending-orders">
+                          <ClockIcon />
+                          Pending Orders
+                        </MenuItem>
+                        <MenuItem href="#completed-orders">
+                          <CheckCircleIcon />
+                          Completed Orders
+                        </MenuItem>
+                        <MenuItem href="#export-orders">
+                          <ArrowUpTrayIcon />
+                          Export Orders
+                        </MenuItem>
+                      </MenuContent>
+                    </Menu>
+                  )}
+                </>
+              )}
+            </SidebarItem>
+
+            <SidebarItem tooltip="Products">
+              {({ isCollapsed, isFocused }) => (
+                <>
+                  <SidebarLink href="#">
+                    <CubeIcon />
+                    <SidebarLabel>Products</SidebarLabel>
+                  </SidebarLink>
+                  {(!isCollapsed || isFocused) && (
+                    <Menu>
+                      <SidebarMenuTrigger aria-label="Manage">
+                        <EllipsisHorizontalIcon />
+                      </SidebarMenuTrigger>
+                      <MenuContent
+                        popover={{
+                          offset: 0,
+                          placement: 'right top',
+                        }}
+                      >
+                        <MenuItem href="#new-product">
+                          <PlusIcon />
+                          Add New Product
+                        </MenuItem>
+                        <MenuItem href="#archive">
+                          <ArchiveBoxIcon />
+                          Archive Product
+                        </MenuItem>
+                        <MenuItem href="#manage-categories">
+                          <HashtagIcon />
+                          Manage Categories
+                        </MenuItem>
+                        <MenuItem href="#import">
+                          <ArrowDownTrayIcon />
+                          Import Products
+                        </MenuItem>
+                        <MenuItem href="#export">
+                          <ArrowUpTrayIcon />
+                          Export Products
+                        </MenuItem>
+                      </MenuContent>
+                    </Menu>
+                  )}
+                </>
+              )}
+            </SidebarItem>
+
+            <SidebarItem href="#" badge="4 Pending" tooltip="Payments">
+              <CreditCardIcon />
+              <SidebarLabel>Payments</SidebarLabel>
+            </SidebarItem>
+          </SidebarSection>
+
+          <SidebarDisclosureGroup defaultExpandedKeys={[1]}>
+            <SidebarDisclosure id={1}>
+              <SidebarDisclosureTrigger>
+                <EllipsisHorizontalIcon />
+                <SidebarLabel>Support</SidebarLabel>
+              </SidebarDisclosureTrigger>
+              <SidebarDisclosurePanel>
+                <SidebarItem href="#" tooltip="Tickets">
+                  <TicketIcon />
+                  <SidebarLabel>Tickets</SidebarLabel>
+                </SidebarItem>
+                <SidebarItem href="#" tooltip="Chat Support">
+                  <ChatBubbleLeftRightIcon />
+                  <SidebarLabel>Chat Support</SidebarLabel>
+                </SidebarItem>
+                <SidebarItem href="#" tooltip="FAQ">
+                  <QuestionMarkCircleIcon />
+                  <SidebarLabel>FAQ</SidebarLabel>
+                </SidebarItem>
+                <SidebarItem href="#" tooltip="Documentation">
+                  <DocumentTextIcon />
+                  <SidebarLabel>Documentation</SidebarLabel>
+                </SidebarItem>
+              </SidebarDisclosurePanel>
+            </SidebarDisclosure>
+            <SidebarDisclosure id={2}>
+              <SidebarDisclosureTrigger>
+                <ArchiveBoxIcon />
+                <SidebarLabel>Inventory</SidebarLabel>
+              </SidebarDisclosureTrigger>
+              <SidebarDisclosurePanel>
+                <SidebarItem href="#" tooltip="Warehouse">
+                  <BuildingOfficeIcon />
+                  <SidebarLabel>Warehouse</SidebarLabel>
+                </SidebarItem>
+                <SidebarItem href="#" tooltip="Stock Levels">
+                  <SidebarLabel>Stock Levels</SidebarLabel>
+                </SidebarItem>
+                <SidebarItem href="#" tooltip="Shipping">
+                  <SidebarLabel>Shipping</SidebarLabel>
+                </SidebarItem>
+              </SidebarDisclosurePanel>
+            </SidebarDisclosure>
+          </SidebarDisclosureGroup>
+        </SidebarSectionGroup>
+      </SidebarContent>
+
+      <SidebarFooter className="flex flex-row justify-between gap-4 group-data-[state=collapsed]:flex-col">
+        <Menu>
+          <MenuTrigger className="flex w-full items-center justify-between" aria-label="Profile">
+            <div className="flex items-center gap-x-2">
+              <Avatar
+                className="size-8 *:size-8 group-data-[state=collapsed]:size-6 group-data-[state=collapsed]:*:size-6"
+                isSquare
+                src="https://intentui.com/images/avatar/cobain.jpg"
+              />
+              <div className="in-data-[collapsible=dock]:hidden text-sm">
+                <SidebarLabel>Kurt Cobain</SidebarLabel>
+                <span className="-mt-0.5 block text-muted-fg">@kurtcobain</span>
+              </div>
+            </div>
+            <ChevronUpDownIcon data-slot="chevron" />
+          </MenuTrigger>
+          <MenuContent
+            className="in-data-[sidebar-collapsible=collapsed]:min-w-56 min-w-(--trigger-width)"
+            placement="bottom right"
+          >
+            <MenuSection>
+              <MenuHeader separator>
+                <span className="block">Kurt Cobain</span>
+                <span className="font-normal text-muted-fg">@cobain</span>
+              </MenuHeader>
+            </MenuSection>
+
+            <MenuItem href="#dashboard">
+              <HomeIcon />
+              Dashboard
+            </MenuItem>
+            <MenuItem href="#settings">
+              <Cog6ToothIcon />
+              Settings
+            </MenuItem>
+            <MenuItem href="#security">
+              <ShieldCheckIcon />
+              Security
+            </MenuItem>
+            <MenuSeparator />
+            <MenuItem href="#contact">
+              <LifebuoyIcon />
+              Customer Support
+            </MenuItem>
+            <MenuSeparator />
+            <MenuItem href="#logout">
+              <ArrowRightStartOnRectangleIcon />
+              Log out
+            </MenuItem>
+          </MenuContent>
+        </Menu>
+      </SidebarFooter>
+      <SidebarRail />
+    </Sidebar>
+  )
+}
+
+```
+
+By default, the sidebar menu trigger will be visible when you hover over the sidebar item. If you want to always show the menu trigger, you can use the `alwaysVisible` prop.
+```
+{/* [!code word:alwaysVisible:1] */}
+<SidebarMenuTrigger alwaysVisible aria-label="Manage">
+  <EllipsisHorizontalIcon />
+</SidebarMenuTrigger>
+```
+
+
+### Badge
+The sidebar supports badges, which can be used to indicate the number of unread messages, tasks, or other items. <NewTab href='/pre-blocks/sidebar/sidebar-09'/>
+```
+<SidebarSection>
+  {navigation.map((item, index) => (
+    <SidebarItem key={index} isCurrent={item.isCurrent} href="#" badge={item?.badge}>
+      {item.icon}
+      <SidebarLabel>{item.label}</SidebarLabel>
+    </SidebarItem>
+  ))}
+</SidebarSection>
+
+const navigation = [
+  { label: "Overview", icon: <HomeIcon />, isCurrent: true, badge: undefined },
+  { label: "Products", icon: <CubeIcon />, isCurrent: false, badge: "31.51K" },
+]
+```
+
+### Separator
+The sidebar supports separators, which can be used to separate sections or groups of items. <NewTab href='/pre-blocks/sidebar/sidebar-19'/>
+```
+<SidebarContent>
+  <SidebarSection/>
+    <SidebarSeparator />
+  <SidebarSection/>
+  <SidebarSection/>
+    <SidebarSeparator />
+  <SidebarSectionGroup/>
+  <SidebarSectionGroup/>
+    <SidebarSeparator />
+  <SidebarSectionGroup/>
+</SidebarContent>
+```
+The example previews will appear similar to the ones in the YouTube sidebar.
+<EditorText
+  source={{
+    'app-sidebar.tsx': 'pre-blocks/sidebar/sidebar-19/app-sidebar',
+    'app-sidebar-nav.tsx': 'pre-blocks/sidebar/sidebar-19/app-sidebar-nav',
+    'layout.tsx': 'pre-blocks/sidebar/sidebar-19/layout',
+    'page.tsx': 'pre-blocks/sidebar/sidebar-19/page',
+  }} />
+
+### Tooltip
+The sidebar supports tooltips, which can be used to display additional information when you're on docked mode.
+
+## Sandbox: sidebar-12
+
+
+**registry/blocks/sidebar-12/page.tsx**
+
+```tsx
+export function Page() {
+  return <div>Tooltip</div>
+}
+
+```
+
+
+
+**registry/blocks/sidebar-12/app-sidebar-nav.tsx**
+
+```tsx
+'use client'
+
+import {
+  ArrowRightOnRectangleIcon,
+  Cog6ToothIcon,
+  CommandLineIcon,
+  Squares2X2Icon,
+} from '@heroicons/react/24/outline'
+import { Avatar } from '@/components/ui/avatar'
+import { Breadcrumbs, BreadcrumbsItem } from '@/components/ui/breadcrumbs'
+import {
+  Menu,
+  MenuContent,
+  MenuHeader,
+  MenuItem,
+  MenuLabel,
+  MenuSection,
+  MenuSeparator,
+  MenuTrigger,
+} from '@/components/ui/menu'
+import { SidebarNav, SidebarTrigger } from '@/components/ui/sidebar'
+
+export function AppSidebarNav() {
+  return (
+    <SidebarNav>
+      <span className="flex items-center gap-x-4">
+        <SidebarTrigger className="-ml-2.5 lg:ml-0" />
+        <Breadcrumbs className="hidden md:flex">
+          <BreadcrumbsItem href="/pre-blocks/sidebar/sidebar-01">Dashboard</BreadcrumbsItem>
+          <BreadcrumbsItem>Newsletter</BreadcrumbsItem>
+        </Breadcrumbs>
+      </span>
+      <UserMenu />
+    </SidebarNav>
+  )
+}
+
+function UserMenu() {
+  return (
+    <Menu>
+      <MenuTrigger className="ml-auto md:hidden" aria-label="Open Menu">
+        <Avatar isSquare alt="kurt cobain" src="https://intentui.com/images/avatar/cobain.jpg" />
+      </MenuTrigger>
+      <MenuContent popover={{ placement: 'bottom end' }} className="min-w-64">
+        <MenuSection>
+          <MenuHeader separator>
+            <span className="block">Kurt Cobain</span>
+            <span className="font-normal text-muted-fg">@cobain</span>
+          </MenuHeader>
+        </MenuSection>
+        <MenuItem href="#dashboard">
+          <Squares2X2Icon />
+          <MenuLabel>Dashboard</MenuLabel>
+        </MenuItem>
+        <MenuItem href="#settings">
+          <Cog6ToothIcon />
+          <MenuLabel>Settings</MenuLabel>
+        </MenuItem>
+        <MenuSeparator />
+        <MenuItem>
+          <CommandLineIcon />
+          <MenuLabel>Command Menu</MenuLabel>
+        </MenuItem>
+        <MenuSeparator />
+        <MenuItem href="#contact-s">
+          <MenuLabel>Contact Support</MenuLabel>
+        </MenuItem>
+        <MenuSeparator />
+        <MenuItem href="#logout">
+          <ArrowRightOnRectangleIcon />
+          <MenuLabel>Log out</MenuLabel>
+        </MenuItem>
+      </MenuContent>
+    </Menu>
+  )
+}
+
+```
+
+
+
+**registry/blocks/sidebar-12/app-sidebar.tsx**
+
+```tsx
+'use client'
+
+import { EllipsisHorizontalIcon } from '@heroicons/react/16/solid'
+import { ChevronUpDownIcon, PlusIcon } from '@heroicons/react/20/solid'
+import {
+  ArchiveBoxIcon,
+  ArrowDownTrayIcon,
+  ArrowRightStartOnRectangleIcon,
+  ArrowUpTrayIcon,
+  BuildingOfficeIcon,
+  ChatBubbleLeftRightIcon,
+  CheckCircleIcon,
+  ClockIcon,
+  Cog6ToothIcon,
+  CreditCardIcon,
+  CubeIcon,
+  DocumentTextIcon,
+  HashtagIcon,
+  HomeIcon,
+  LifebuoyIcon,
+  ListBulletIcon,
+  QuestionMarkCircleIcon,
+  ShieldCheckIcon,
+  ShoppingBagIcon,
+  TicketIcon,
+} from '@heroicons/react/24/outline'
+import { Avatar } from '@/components/ui/avatar'
+import { Link } from '@/components/ui/link'
+import {
+  Menu,
+  MenuContent,
+  MenuHeader,
+  MenuItem,
+  MenuSection,
+  MenuSeparator,
+  MenuTrigger,
+} from '@/components/ui/menu'
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarDisclosure,
+  SidebarDisclosureGroup,
+  SidebarDisclosurePanel,
+  SidebarDisclosureTrigger,
+  SidebarFooter,
+  SidebarHeader,
+  SidebarItem,
+  SidebarLabel,
+  SidebarLink,
+  SidebarMenuTrigger,
+  SidebarRail,
+  SidebarSection,
+  SidebarSectionGroup,
+} from '@/components/ui/sidebar'
+
+export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
+  return (
+    <Sidebar {...props}>
+      <SidebarHeader>
+        <Link href="/docs/components/layouts/sidebar" className="flex items-center gap-x-2">
+          <Avatar
+            isSquare
+            size="sm"
+            className="outline-hidden"
+            src="https://design.intentui.com/logo"
+          />
+          <SidebarLabel className="font-medium">
+            Intent <span className="text-muted-fg">UI</span>
+          </SidebarLabel>
+        </Link>
+      </SidebarHeader>
+      <SidebarContent>
+        <SidebarSectionGroup>
+          <SidebarSection label="Overview">
+            <SidebarItem tooltip="Overview" isCurrent href="#">
+              <HomeIcon />
+              <SidebarLabel>Overview</SidebarLabel>
+            </SidebarItem>
+
+            <SidebarItem tooltip="Orders">
+              {({ isCollapsed, isFocused }) => (
+                <>
+                  <SidebarLink href="#">
+                    <ShoppingBagIcon />
+                    <SidebarLabel>Orders</SidebarLabel>
+                  </SidebarLink>
+                  {(!isCollapsed || isFocused) && (
+                    <Menu>
+                      <SidebarMenuTrigger aria-label="Manage">
+                        <EllipsisHorizontalIcon />
+                      </SidebarMenuTrigger>
+                      <MenuContent
+                        popover={{
+                          offset: 0,
+                          placement: 'right top',
+                        }}
+                      >
+                        <MenuItem href="#new-order">
+                          <PlusIcon />
+                          Create New Order
+                        </MenuItem>
+                        <MenuItem href="#view-all">
+                          <ListBulletIcon />
+                          View All Orders
+                        </MenuItem>
+                        <MenuItem href="#pending-orders">
+                          <ClockIcon />
+                          Pending Orders
+                        </MenuItem>
+                        <MenuItem href="#completed-orders">
+                          <CheckCircleIcon />
+                          Completed Orders
+                        </MenuItem>
+                        <MenuItem href="#export-orders">
+                          <ArrowUpTrayIcon />
+                          Export Orders
+                        </MenuItem>
+                      </MenuContent>
+                    </Menu>
+                  )}
+                </>
+              )}
+            </SidebarItem>
+
+            <SidebarItem tooltip="Products">
+              {({ isCollapsed, isFocused }) => (
+                <>
+                  <SidebarLink href="#">
+                    <CubeIcon />
+                    <SidebarLabel>Products</SidebarLabel>
+                  </SidebarLink>
+                  {(!isCollapsed || isFocused) && (
+                    <Menu>
+                      <SidebarMenuTrigger aria-label="Manage">
+                        <EllipsisHorizontalIcon />
+                      </SidebarMenuTrigger>
+                      <MenuContent
+                        popover={{
+                          offset: 0,
+                          placement: 'right top',
+                        }}
+                      >
+                        <MenuItem href="#new-product">
+                          <PlusIcon />
+                          Add New Product
+                        </MenuItem>
+                        <MenuItem href="#archive">
+                          <ArchiveBoxIcon />
+                          Archive Product
+                        </MenuItem>
+                        <MenuItem href="#manage-categories">
+                          <HashtagIcon />
+                          Manage Categories
+                        </MenuItem>
+                        <MenuItem href="#import">
+                          <ArrowDownTrayIcon />
+                          Import Products
+                        </MenuItem>
+                        <MenuItem href="#export">
+                          <ArrowUpTrayIcon />
+                          Export Products
+                        </MenuItem>
+                      </MenuContent>
+                    </Menu>
+                  )}
+                </>
+              )}
+            </SidebarItem>
+
+            <SidebarItem href="#" badge="4 Pending" tooltip="Payments">
+              <CreditCardIcon />
+              <SidebarLabel>Payments</SidebarLabel>
+            </SidebarItem>
+          </SidebarSection>
+
+          <SidebarDisclosureGroup defaultExpandedKeys={[1]}>
+            <SidebarDisclosure id={1}>
+              <SidebarDisclosureTrigger>
+                <EllipsisHorizontalIcon />
+                <SidebarLabel>Support</SidebarLabel>
+              </SidebarDisclosureTrigger>
+              <SidebarDisclosurePanel>
+                <SidebarItem href="#" tooltip="Tickets">
+                  <TicketIcon />
+                  <SidebarLabel>Tickets</SidebarLabel>
+                </SidebarItem>
+                <SidebarItem href="#" tooltip="Chat Support">
+                  <ChatBubbleLeftRightIcon />
+                  <SidebarLabel>Chat Support</SidebarLabel>
+                </SidebarItem>
+                <SidebarItem href="#" tooltip="FAQ">
+                  <QuestionMarkCircleIcon />
+                  <SidebarLabel>FAQ</SidebarLabel>
+                </SidebarItem>
+                <SidebarItem href="#" tooltip="Documentation">
+                  <DocumentTextIcon />
+                  <SidebarLabel>Documentation</SidebarLabel>
+                </SidebarItem>
+              </SidebarDisclosurePanel>
+            </SidebarDisclosure>
+            <SidebarDisclosure id={2}>
+              <SidebarDisclosureTrigger>
+                <ArchiveBoxIcon />
+                <SidebarLabel>Inventory</SidebarLabel>
+              </SidebarDisclosureTrigger>
+              <SidebarDisclosurePanel>
+                <SidebarItem href="#" tooltip="Warehouse">
+                  <BuildingOfficeIcon />
+                  <SidebarLabel>Warehouse</SidebarLabel>
+                </SidebarItem>
+                <SidebarItem href="#" tooltip="Stock Levels">
+                  <SidebarLabel>Stock Levels</SidebarLabel>
+                </SidebarItem>
+                <SidebarItem href="#" tooltip="Shipping">
+                  <SidebarLabel>Shipping</SidebarLabel>
+                </SidebarItem>
+              </SidebarDisclosurePanel>
+            </SidebarDisclosure>
+          </SidebarDisclosureGroup>
+        </SidebarSectionGroup>
+      </SidebarContent>
+
+      <SidebarFooter className="flex flex-row justify-between gap-4 group-data-[state=collapsed]:flex-col">
+        <Menu>
+          <MenuTrigger className="flex w-full items-center justify-between" aria-label="Profile">
+            <div className="flex items-center gap-x-2">
+              <Avatar
+                className="size-8 *:size-8 group-data-[state=collapsed]:size-6 group-data-[state=collapsed]:*:size-6"
+                isSquare
+                src="https://intentui.com/images/avatar/cobain.jpg"
+              />
+              <div className="in-data-[collapsible=dock]:hidden text-sm">
+                <SidebarLabel>Kurt Cobain</SidebarLabel>
+                <span className="-mt-0.5 block text-muted-fg">@kurtcobain</span>
+              </div>
+            </div>
+            <ChevronUpDownIcon data-slot="chevron" />
+          </MenuTrigger>
+          <MenuContent
+            className="in-data-[sidebar-collapsible=collapsed]:min-w-56 min-w-(--trigger-width)"
+            placement="bottom right"
+          >
+            <MenuSection>
+              <MenuHeader separator>
+                <span className="block">Kurt Cobain</span>
+                <span className="font-normal text-muted-fg">@cobain</span>
+              </MenuHeader>
+            </MenuSection>
+
+            <MenuItem href="#dashboard">
+              <HomeIcon />
+              Dashboard
+            </MenuItem>
+            <MenuItem href="#settings">
+              <Cog6ToothIcon />
+              Settings
+            </MenuItem>
+            <MenuItem href="#security">
+              <ShieldCheckIcon />
+              Security
+            </MenuItem>
+            <MenuSeparator />
+            <MenuItem href="#contact">
+              <LifebuoyIcon />
+              Customer Support
+            </MenuItem>
+            <MenuSeparator />
+            <MenuItem href="#logout">
+              <ArrowRightStartOnRectangleIcon />
+              Log out
+            </MenuItem>
+          </MenuContent>
+        </Menu>
+      </SidebarFooter>
+      <SidebarRail />
+    </Sidebar>
+  )
+}
+
+```
+
+### Header
+The sidebar supports headers, which can be used to display additional actions or options.
+```
+<Sidebar {...props}>
+  <SidebarHeader>
+    <Link
+      className="flex items-center group-data-[collapsible=dock]:size-10 group-data-[collapsible=dock]:justify-center gap-x-2"
+      href="/docs/components/layouts/sidebar"
+    >
+      <SidebarLabel className="font-medium">Intent UI</SidebarLabel>
+    </Link>
+  </SidebarHeader>
+  ...
+</Sidebar>
+```
+
+### Footer
+The sidebar supports footers, which can be used to display additional actions or options.
+```
+<Sidebar {...props}>
+  ...
+  <SidebarFooter>
+    <Menu>
+      <MenuTrigger aria-label="Profile">
+        <Avatar isSquare src="https://intentui.com/images/avatar/cobain.jpg" />
+        <div className="group-data-[collapsible=dock]:hidden text-sm">
+          Kurt Cobain
+          <span className="block -mt-0.5 text-muted-fg">@cobain</span>
+        </div>
+        <ChevronDownIcon className="absolute right-3 transition-transform size-4 group-pressed:rotate-180" />
+      </MenuTrigger>
+      <MenuContent placement="bottom right" className="min-w-(--trigger-width)">
+        <MenuItem/>
+      </MenuContent>
+    </Menu>
+  </SidebarFooter>
+</Sidebar>
+```
+### Side
+The sidebar has two sides, left and right. You can set the side of the sidebar by using the `side` prop. <NewTab href='/pre-blocks/sidebar/sidebar-16'/>
+```
+<Sidebar side='left | right'/>
+```
+<EditorText
+  source={{
+    'app-sidebar.tsx': 'pre-blocks/sidebar/app-sidebar',
+    'app-sidebar-nav.tsx': 'pre-blocks/sidebar/app-sidebar-nav',
+    'layout.tsx': 'pre-blocks/sidebar/sidebar-16/layout',
+    'page.tsx': 'pre-blocks/sidebar/sidebar-16/page',
+  }} />
+
+### Put anything
+You can put anything you want in it. You can use the `SidebarContent` component to wrap your content. Let's try to add a range-calendar and search-field to the sidebar. <NewTab href='/pre-blocks/sidebar/sidebar-17'/>
+<EditorText
+  source={{
+    'app-sidebar.tsx': 'pre-blocks/sidebar/sidebar-17/app-sidebar',
+    'layout.tsx': 'pre-blocks/sidebar/sidebar-17/layout',
+  }} />
+
+### Remember state
+To persist the sidebar’s state across sessions, wrap your layout with the SidebarProvider component. It stores the sidebar’s state in a cookie and restores it when the user revisits the page.
+```
+import { cookies } from "next/headers"
+
+export default async function Layout({ children }: Readonly<{ children: React.ReactNode }>) {
+  const cookieStore = await cookies()
+  const sidebarState = cookieStore.get("sidebar_state")
+
+  let defaultOpen = true
+  if (sidebarState) {
+    defaultOpen = sidebarState.value === "true"
+  }
+  return (
+    <SidebarProvider defaultOpen={defaultOpen}>
+```
+
+## Component API
+
+### Sidebar
+
+<ApiParameters>
+  <ApiDescription>
+    **Sidebar** extends the native **`<div>`** element.
+  </ApiDescription>
+  <ApiParameter name="className" type='string' />
+  <ApiParameter name="closeButton" type='boolean' defaultValue='true' />
+  <ApiParameter name="collapsible" type='"hidden" | "dock" | "none"' defaultValue='hidden' />
+  <ApiParameter name="intent" type='"default" | "float" | "inset"' defaultValue='default' />
+  <ApiParameter name="side" type='"left" | "right"' defaultValue='left' />
+</ApiParameters>
+
+### SidebarContent
+
+<ApiParameters>
+  <ApiDescription>
+    **SidebarContent** extends the native **`<div>`** element.
+  </ApiDescription>
+  <ApiParameter name="className" type='string' />
+</ApiParameters>
+
+### SidebarDisclosure
+
+<ApiParameters>
+  <ApiDescription>
+    **SidebarDisclosure** extends the React Aria Components [**`<Disclosure>`**](https://react-aria.adobe.com/Disclosure#api) component.
+  </ApiDescription>
+  <ApiParameter name="className" type='string' />
+</ApiParameters>
+
+### SidebarDisclosureGroup
+
+<ApiParameters>
+  <ApiDescription>
+    **SidebarDisclosureGroup** extends the React Aria Components [**`<DisclosureGroup>`**](https://react-aria.adobe.com/DisclosureGroup#api) component.
+  </ApiDescription>
+  <ApiParameter name="className" type='string' />
+</ApiParameters>
+
+### SidebarDisclosurePanel
+
+<ApiParameters>
+  <ApiDescription>
+    **SidebarDisclosurePanel** extends the React Aria Components [**`<DisclosurePanel>`**](https://react-aria.adobe.com/Disclosure#api) component.
+  </ApiDescription>
+  <ApiParameter name="className" type='string' />
+</ApiParameters>
+
+### SidebarDisclosureTrigger
+
+<ApiParameters>
+  <ApiDescription>
+    **SidebarDisclosureTrigger** extends the React Aria Components [**`<Button>`**](https://react-aria.adobe.com/Button#api) component.
+  </ApiDescription>
+  <ApiParameter name="className" type='string' />
+</ApiParameters>
+
+### SidebarFooter
+
+<ApiParameters>
+  <ApiDescription>
+    **SidebarFooter** extends the native **`<div>`** element.
+  </ApiDescription>
+  <ApiParameter name="className" type='string' />
+</ApiParameters>
+
+### SidebarHeader
+
+<ApiParameters>
+  <ApiDescription>
+    **SidebarHeader** extends the native **`<div>`** element.
+  </ApiDescription>
+  <ApiParameter name="className" type='string' />
+</ApiParameters>
+
+### SidebarInset
+
+<ApiParameters>
+  <ApiDescription>
+    **SidebarInset** extends the native **`<main>`** element.
+  </ApiDescription>
+  <ApiParameter name="className" type='string' />
+</ApiParameters>
+
+### SidebarItem
+
+<ApiParameters>
+  <ApiDescription>
+    **SidebarItem** extends the Intent UI [**`<Link>`**](/docs/components/navigation/link#link) component.
+  </ApiDescription>
+  <ApiParameter name="badge" type='string | number | undefined' />
+  <ApiParameter name="className" type='string' />
+  <ApiParameter name="isCurrent" type='boolean' />
+  <ApiParameter name="tooltip" type='string | React.ComponentProps<typeof TooltipContent>' />
+</ApiParameters>
+
+### SidebarLabel
+
+<ApiParameters>
+  <ApiDescription>
+    **SidebarLabel** extends the React Aria Components [**`<Text>`**](https://react-aria.adobe.com/collections) component.
+  </ApiDescription>
+  <ApiParameter name="className" type='string' />
+</ApiParameters>
+
+### SidebarLink
+
+<ApiParameters>
+  <ApiDescription>
+    **SidebarLink** extends the React Aria Components [**`<Link>`**](https://react-aria.adobe.com/Link#api) component.
+  </ApiDescription>
+  <ApiParameter name="className" type='string' />
+</ApiParameters>
+
+### SidebarMenuTrigger
+
+<ApiParameters>
+  <ApiDescription>
+    **SidebarMenuTrigger** extends the React Aria Components [**`<Button>`**](https://react-aria.adobe.com/Button#api) component.
+  </ApiDescription>
+  <ApiParameter name="alwaysVisible" type='boolean' defaultValue='false' />
+  <ApiParameter name="className" type='string' />
+</ApiParameters>
+
+### SidebarNav
+
+<ApiParameters>
+  <ApiDescription>
+    **SidebarNav** extends the native **`<nav>`** element.
+  </ApiDescription>
+  <ApiParameter name="className" type='string' />
+  <ApiParameter name="isSticky" type='boolean' defaultValue='false' />
+</ApiParameters>
+
+### SidebarProvider
+
+<ApiParameters>
+  <ApiDescription>
+    **SidebarProvider** extends the native **`<div>`** element.
+  </ApiDescription>
+  <ApiParameter name="className" type='string' />
+  <ApiParameter name="defaultOpen" type='boolean' defaultValue='true' />
+  <ApiParameter name="isOpen" type='boolean' />
+  <ApiParameter name="onOpenChange" type='(open: boolean) => void' />
+  <ApiParameter name="shortcut" type='string' defaultValue='b' />
+</ApiParameters>
+
+### SidebarRail
+
+<ApiParameters>
+  <ApiDescription>
+    **SidebarRail** extends the native **`<button>`** element.
+  </ApiDescription>
+  <ApiParameter name="className" type='string' />
+</ApiParameters>
+
+### SidebarSection
+
+<ApiParameters>
+  <ApiDescription>
+    **SidebarSection** extends the native **`<div>`** element.
+  </ApiDescription>
+  <ApiParameter name="className" type='string' />
+  <ApiParameter name="label" type='string' />
+</ApiParameters>
+
+### SidebarSectionGroup
+
+<ApiParameters>
+  <ApiDescription>
+    **SidebarSectionGroup** extends the native **`<section>`** element.
+  </ApiDescription>
+  <ApiParameter name="className" type='string' />
+</ApiParameters>
+
+### SidebarSeparator
+
+<ApiParameters>
+  <ApiDescription>
+    **SidebarSeparator** extends the React Aria Components [**`<Separator>`**](https://react-aria.adobe.com/Separator#api) component.
+  </ApiDescription>
+  <ApiParameter name="className" type='string' />
+</ApiParameters>
+
+### SidebarTree
+
+<ApiParameters>
+  <ApiDescription>
+    **SidebarTree** extends the React Aria Components [**`<Tree>`**](https://react-aria.adobe.com/Tree#api) component.
+  </ApiDescription>
+  <ApiParameter name="className" type='string' />
+</ApiParameters>
+
+### SidebarTreeContent
+
+<ApiParameters>
+  <ApiDescription>
+    **SidebarTreeContent** extends the React Aria Components [**`<TreeItemContent>`**](https://react-aria.adobe.com/Tree#api) component.
+  </ApiDescription>
+  <ApiParameter name="className" type='string' />
+  <ApiParameter name="isCurrent" type='boolean' />
+</ApiParameters>
+
+### SidebarTreeItem
+
+<ApiParameters>
+  <ApiDescription>
+    **SidebarTreeItem** extends the React Aria Components [**`<TreeItem>`**](https://react-aria.adobe.com/Tree#api) component.
+  </ApiDescription>
+  <ApiParameter name="className" type='string' />
+</ApiParameters>
+
+### SidebarTrigger
+
+<ApiParameters>
+  <ApiDescription>
+    **SidebarTrigger** extends the Intent UI [**`<Button>`**](/docs/components/buttons/button#button) component.
+  </ApiDescription>
+  <ApiParameter name="className" type='string' />
+</ApiParameters>
