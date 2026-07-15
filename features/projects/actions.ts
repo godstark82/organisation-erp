@@ -1,7 +1,6 @@
 "use server"
 
 import { revalidatePath } from "next/cache"
-import { redirect } from "next/navigation"
 import {
   addProjectMembersSchema,
   createMilestoneSchema,
@@ -28,6 +27,7 @@ import {
 export type ProjectActionState = {
   error?: string
   success?: string
+  id?: string
   fieldErrors?: Record<string, string[]>
 }
 
@@ -39,16 +39,6 @@ function fieldErrorsFromZod(
     Object.entries(flattened)
       .filter(([, value]) => value && value.length > 0)
       .map(([key, value]) => [key, value as string[]])
-  )
-}
-
-function isNextRedirect(err: unknown) {
-  return (
-    typeof err === "object" &&
-    err !== null &&
-    "digest" in err &&
-    typeof (err as { digest: unknown }).digest === "string" &&
-    (err as { digest: string }).digest.startsWith("NEXT_REDIRECT")
   )
 }
 
@@ -148,9 +138,9 @@ export async function createProjectAction(
     }
 
     revalidatePath("/projects")
-    redirect(`/projects/${project.id}`)
+    revalidatePath(`/projects/${project.id}`)
+    return { success: "Project created", id: project.id }
   } catch (err) {
-    if (isNextRedirect(err)) throw err
     return {
       error: actionErrorMessage(err, "Failed to create project"),
     }
@@ -219,11 +209,19 @@ export async function updateProjectAction(
   }
 }
 
-export async function deleteProjectAction(projectId: string) {
-  const session = await requireSession()
-  await deleteProject(projectId, session.id)
-  revalidatePath("/projects")
-  redirect("/projects")
+export async function deleteProjectAction(
+  projectId: string
+): Promise<ProjectActionState> {
+  try {
+    const session = await requireSession()
+    await deleteProject(projectId, session.id)
+    revalidatePath("/projects")
+    return { success: "Project deleted", id: projectId }
+  } catch (err) {
+    return {
+      error: actionErrorMessage(err, "Failed to delete project"),
+    }
+  }
 }
 
 export async function addProjectMemberAction(
