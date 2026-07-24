@@ -38,54 +38,58 @@ export function FilterBar({
     <div
       data-slot="filter-bar"
       className={twMerge(
-        'flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between',
+        'rounded-xl border border-border bg-muted/20 p-3 sm:p-4',
         className
       )}
       {...props}
     >
-      <div className="flex min-w-0 w-full flex-1 flex-col gap-3 lg:flex-row lg:items-center">
-        <div className="flex w-full items-center gap-2 lg:max-w-xs lg:shrink-0">
-          {onSearchChange && (
-            <SearchField
-              className="min-w-0 flex-1"
-              value={searchValue}
-              onChange={onSearchChange}
-            >
-              <SearchInput placeholder={searchPlaceholder} />
-            </SearchField>
-          )}
-          {collapsibleFilters && filters && (
-            <Button
-              intent={filtersOpen || hasActiveFilters ? 'secondary' : 'outline'}
-              size="sm"
-              className="shrink-0 lg:hidden"
-              onPress={() => setFiltersOpen((open) => !open)}
-            >
-              <FunnelIcon />
-              Filters
-            </Button>
-          )}
-        </div>
+      <div className="flex flex-col gap-3">
+        {(onSearchChange || showClear || actions || (collapsibleFilters && filters)) && (
+          <div className="flex flex-wrap items-center gap-2">
+            {onSearchChange && (
+              <SearchField
+                className="min-w-0 flex-1 basis-48 sm:max-w-sm"
+                value={searchValue}
+                onChange={onSearchChange}
+              >
+                <SearchInput placeholder={searchPlaceholder} className="h-9 py-0 sm:h-9" />
+              </SearchField>
+            )}
+
+            <div className="ms-auto flex shrink-0 items-center gap-2">
+              {collapsibleFilters && filters && (
+                <Button
+                  intent={filtersOpen || hasActiveFilters ? 'secondary' : 'outline'}
+                  size="sm"
+                  className="lg:hidden"
+                  onPress={() => setFiltersOpen((open) => !open)}
+                >
+                  <FunnelIcon />
+                  Filters
+                </Button>
+              )}
+              {showClear && onClear && (
+                <Button intent="plain" size="sm" onPress={onClear}>
+                  <XMarkIcon />
+                  Clear
+                </Button>
+              )}
+              {actions}
+            </div>
+          </div>
+        )}
+
         {filters && (
           <div
             className={twMerge(
-              'flex flex-wrap items-center gap-2',
-              collapsibleFilters && !filtersOpen && 'hidden lg:flex'
+              'grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6',
+              collapsibleFilters && !filtersOpen && 'hidden lg:grid'
             )}
           >
             {filters}
           </div>
         )}
         {children}
-      </div>
-      <div className="flex items-center gap-2">
-        {showClear && onClear && (
-          <Button intent="plain" size="sm" onPress={onClear}>
-            <XMarkIcon />
-            Clear
-          </Button>
-        )}
-        {actions}
       </div>
     </div>
   )

@@ -21,6 +21,7 @@ import {
 } from "@/features/payments/lib/acceptance"
 import { listPaymentsAwaitingVerification } from "./payments.repository"
 import { listProjects } from "./projects.repository"
+import { isTimestampInDateRange } from "@/lib/date-range"
 
 /** Pre-delivery / waiting statuses */
 const PENDING_PROJECT_STATUSES: ProjectStatus[] = [
@@ -420,6 +421,9 @@ export interface AgencyDashboardFilters {
   /** Restrict to projects where this user is a member */
   memberUserId?: string
   categoryId?: string
+  /** Inclusive YYYY-MM-DD — filter by project created_at */
+  from?: string | null
+  to?: string | null
 }
 
 function buildAgencyDashboardStats(
@@ -439,78 +443,48 @@ function buildAgencyDashboardStats(
     )
   }
 
-  let amountReceived = 0
-  let totalBudget = 0
-  let amountLeft = 0
-  const projectsWithBalance: AgencyDashboardStats["projectsWithBalance"] = []
+  const clientName = (project: Project) =>
+    project.client?.company_name ??
+    (project.client_id ? clientNameById.get(project.client_id) : undefined) ??
+    "Client"
 
-  for (const project of projects) {
+  const toRow = (project: Project) => {
     const paid = paidByProject.get(project.id) ?? 0
-    const remaining = Math.max(project.budget - paid, 0)
-    amountReceived += paid
-    totalBudget += project.budget
-    amountLeft += remaining
-    if (remaining > 0 && project.status !== "cancelled") {
-      projectsWithBalance.push({
-        id: project.id,
-        name: project.name,
-        status: project.status,
-        clientName:
-          project.client?.company_name ??
-          (project.client_id
-            ? clientNameById.get(project.client_id)
-            : undefined) ??
-          "Client",
-        budget: project.budget,
-        paid,
-        remaining,
-        currency: project.currency ?? "INR",
-      })
+    const amount = Math.max(project.budget - paid, 0)
+    return {
+      id: project.id,
+      name: project.name,
+      status: project.status,
+      clientName: clientName(project),
+      budget: project.budget,
+      paid,
+      amount,
+      currency: project.currency ?? "INR",
     }
   }
 
-  projectsWithBalance.sort((a, b) => b.remaining - a.remaining)
+  /** Open work = not completed / cancelled — shown as potential */
+  const openStatuses: ProjectStatus[] = [
+    ...PENDING_PROJECT_STATUSES,
+    ...ACTIVE_PROJECT_STATUSES,
+  ]
+  const pendingList = projects
+    .filter((p) => openStatuses.includes(p.status))
+    .map(toRow)
+    .sort((a, b) => b.amount - a.amount)
 
-  const awaiting = scopedPayments.filter(
-    (p) =>
-      p.status !== "verified" &&
-      p.status !== "disputed" &&
-      hasClientAccepted(p) &&
-      !hasStaffAccepted(p)
-  )
-
-  const projectNameById = new Map(projects.map((p) => [p.id, p.name]))
-  const projectClientById = new Map(
-    projects.map((p) => [
-      p.id,
-      p.client?.company_name ??
-        (p.client_id ? clientNameById.get(p.client_id) : undefined) ??
-        "Client",
-    ])
-  )
+  const completedList = projects
+    .filter((p) => p.status === "completed")
+    .map(toRow)
+    .sort((a, b) => b.amount - a.amount)
 
   return {
-    amountLeft,
-    amountReceived,
-    totalBudget,
-    pendingProjects: countByStatuses(projects, PENDING_PROJECT_STATUSES),
-    activeProjects: countByStatuses(projects, ACTIVE_PROJECT_STATUSES),
-    completedProjects: projects.filter((p) => p.status === "completed").length,
-    awaitingYourAcceptanceCount: awaiting.length,
-    awaitingYourAcceptanceAmount: awaiting.reduce((s, p) => s + p.amount, 0),
-    awaitingYourAcceptance: awaiting
-      .slice()
-      .sort((a, b) => b.created_at.localeCompare(a.created_at))
-      .slice(0, 8)
-      .map((p) => ({
-        id: p.id,
-        amount: p.amount,
-        currency: p.currency ?? "INR",
-        projectName: projectNameById.get(p.project_id) ?? "Project",
-        clientName: projectClientById.get(p.project_id) ?? "Client",
-        createdAt: p.created_at,
-      })),
-    projectsWithBalance: projectsWithBalance.slice(0, 8),
+    pendingCount: pendingList.length,
+    pendingPotential: pendingList.reduce((sum, p) => sum + p.amount, 0),
+    pendingProjects: pendingList,
+    completedCount: completedList.length,
+    completedExpected: completedList.reduce((sum, p) => sum + p.amount, 0),
+    completedProjects: completedList,
   }
 }
 
@@ -526,6 +500,12 @@ export async function getAgencyDashboardStats(
 
   if (filters?.categoryId) {
     projects = projects.filter((p) => p.category_id === filters.categoryId)
+  }
+
+  if (filters?.from || filters?.to) {
+    projects = projects.filter((p) =>
+      isTimestampInDateRange(p.created_at, filters.from ?? null, filters.to ?? null)
+    )
   }
 
   if (isDemoMode()) {

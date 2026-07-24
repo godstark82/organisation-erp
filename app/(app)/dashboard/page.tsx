@@ -13,11 +13,15 @@ import {
 } from "@/lib/repositories/dashboard.repository"
 import { listProfiles } from "@/lib/repositories/profiles.repository"
 import { listProjectCategories } from "@/lib/repositories/projects.repository"
+import { resolveDateRangeFromParams } from "@/lib/date-range"
 
 interface DashboardPageProps {
   searchParams: Promise<{
     category?: string
     developer?: string
+    from?: string
+    to?: string
+    range?: string
   }>
 }
 
@@ -61,13 +65,21 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     }
   }
 
-  const isDeveloper = role === "developer"
-  const canFilterDevelopers = isAdminRole(role)
-  const lockedDeveloperId = isDeveloper ? session.id : null
+  const canFilterMembers = isAdminRole(role)
+  /** Non-admins stay on their own projects; admins default to self but can change */
+  const lockedMemberId = canFilterMembers ? null : session.id
+  const developerParam = params.developer
   const memberUserId =
-    lockedDeveloperId ??
-    (canFilterDevelopers ? params.developer || undefined : undefined)
+    lockedMemberId ??
+    (developerParam === "all"
+      ? undefined
+      : developerParam || session.id)
   const categoryId = params.category || undefined
+  const dateRange = resolveDateRangeFromParams({
+    from: params.from,
+    to: params.to,
+    range: params.range,
+  })
 
   let stats = null
   let categories: Awaited<ReturnType<typeof listProjectCategories>> = []
@@ -75,24 +87,26 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   let error: string | null = null
 
   try {
-    const [agencyStats, cats, devs] = await Promise.all([
+    const [agencyStats, cats, members] = await Promise.all([
       getAgencyDashboardStats({
         organizationId: orgId,
         memberUserId,
         categoryId,
+        from: dateRange.from,
+        to: dateRange.to,
       }),
       listProjectCategories(orgId),
-      canFilterDevelopers
+      canFilterMembers
         ? listProfiles({
             organizationId: orgId,
-            roles: ["developer"],
+            excludeRoles: ["client"],
             activeOnly: true,
           })
         : Promise.resolve([]),
     ])
     stats = agencyStats
     categories = cats
-    developers = devs
+    developers = members
   } catch {
     error = "Unable to load dashboard data. Please try again shortly."
   }
@@ -112,8 +126,9 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           stats={stats}
           categories={categories}
           developers={developers}
-          lockedDeveloperId={lockedDeveloperId}
-          canFilterDevelopers={canFilterDevelopers}
+          defaultMemberId={session.id}
+          lockedMemberId={lockedMemberId}
+          canFilterMembers={canFilterMembers}
         />
       )}
     </Suspense>

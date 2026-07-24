@@ -536,37 +536,28 @@ export interface ClientDashboardStats {
   }>
 }
 
-/** Agency / staff dashboard — mirror of client view from the receivable side */
+/** Agency / staff dashboard — pending (potential) vs completed (expected) */
+export interface AgencyDashboardProjectRow {
+  id: string
+  name: string
+  status: ProjectStatus
+  clientName: string
+  budget: number
+  paid: number
+  /** Remaining budget after verified payments */
+  amount: number
+  currency: string
+}
+
 export interface AgencyDashboardStats {
-  /** Sum of max(0, budget − verified paid) still to collect */
-  amountLeft: number
-  /** Total verified payments received */
-  amountReceived: number
-  totalBudget: number
-  pendingProjects: number
-  activeProjects: number
-  completedProjects: number
-  /** Payments waiting for staff acceptance */
-  awaitingYourAcceptanceCount: number
-  awaitingYourAcceptanceAmount: number
-  awaitingYourAcceptance: Array<{
-    id: string
-    amount: number
-    currency: string
-    projectName: string
-    clientName: string
-    createdAt: string
-  }>
-  projectsWithBalance: Array<{
-    id: string
-    name: string
-    status: ProjectStatus
-    clientName: string
-    budget: number
-    paid: number
-    remaining: number
-    currency: string
-  }>
+  pendingCount: number
+  /** Remaining budget on open projects — pipeline potential */
+  pendingPotential: number
+  pendingProjects: AgencyDashboardProjectRow[]
+  completedCount: number
+  /** Remaining budget on completed projects — money you can expect */
+  completedExpected: number
+  completedProjects: AgencyDashboardProjectRow[]
 }
 
 export interface SessionUser {

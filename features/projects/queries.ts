@@ -13,7 +13,7 @@ import {
   seedDefaultProjectCategories,
   getProject,
 } from "@/lib/repositories/projects.repository"
-import { hasPermission } from "@/lib/rbac"
+import { hasPermission, isAdminRole } from "@/lib/rbac"
 
 export async function fetchProjectsPageQuery() {
   const session = await requireSession()
@@ -21,6 +21,7 @@ export async function fetchProjectsPageQuery() {
   const isClient = session.profile.role === "client"
   const canManage = hasPermission(session.permissions, "projects.create")
   const canAssignDevelopers = hasPermission(session.permissions, "users.manage")
+  const canFilterMembers = isAdminRole(session.profile.role)
 
   let categories = await listProjectCategories(orgId)
   if (categories.length === 0 && canManage && !isClient) {
@@ -35,7 +36,7 @@ export async function fetchProjectsPageQuery() {
     listProjects({ organizationId: orgId }),
     listClients({ organizationId: orgId }),
     listPayments({ organizationId: orgId }),
-    canAssignDevelopers
+    canFilterMembers || canAssignDevelopers
       ? listProfiles({ organizationId: orgId, excludeRoles: ["client"] })
       : Promise.resolve([]),
   ])
@@ -48,6 +49,8 @@ export async function fetchProjectsPageQuery() {
     categories,
     canManage,
     canAssignDevelopers,
+    canFilterMembers,
+    currentUserId: session.id,
     orgId,
     isClient,
     lockedClientId: linkedClient?.id ?? null,
